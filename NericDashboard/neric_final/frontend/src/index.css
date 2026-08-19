@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================
+   NERIC v3 THEME — Enterprise Smart City Command Center
+   ========================================================= */
+
+:root {
+  --surface: 250 251 253;
+  --surface-elevated: 255 255 255;
+  --surface-muted: 244 246 250;
+  --surface-hover: 241 245 249;
+  --border: 226 232 240;
+  --border-strong: 203 213 225;
+  --ink: 15 23 42;
+  --ink-muted: 71 85 105;
+  --ink-soft: 148 163 184;
+  --accent: 37 99 235;
+  --accent-hover: 29 78 216;
+  --accent-soft: 219 234 254;
+  --danger: 220 38 38;
+  --success: 22 163 74;
+  --warning: 217 119 6;
+}
+
+.dark {
+  --surface: 10 12 16;
+  --surface-elevated: 17 20 26;
+  --surface-muted: 22 26 33;
+  --surface-hover: 28 33 42;
+  --border: 31 36 46;
+  --border-strong: 51 58 71;
+  --ink: 226 232 240;
+  --ink-muted: 148 163 184;
+  --ink-soft: 100 116 139;
+  --accent: 59 130 246;
+  --accent-hover: 96 165 250;
+  --accent-soft: 30 58 138;
+  --danger: 239 68 68;
+  --success: 34 197 94;
+  --warning: 234 179 8;
+}
+
+@layer base {
+  * { @apply border-border; }
+  html {
+    @apply scroll-smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    @apply bg-surface text-ink font-sans;
+    font-feature-settings: 'ss01', 'cv01', 'cv11';
+    transition: background-color 180ms ease, color 180ms ease;
+  }
+  ::selection {
+    background-color: rgb(var(--accent) / 0.2);
+    color: rgb(var(--ink));
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-border bg-surface-elevated shadow-card;
+  }
+  .num {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-feature-settings: 'tnum', 'zero';
+    font-variant-numeric: tabular-nums;
+  }
+  .eyebrow {
+    @apply text-[10px] uppercase tracking-[0.14em] font-semibold text-ink-muted;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-elevated px-2 py-0.5 text-[11px] font-medium;
+  }
+
+  /* Leaflet */
+  .leaflet-container {
+    @apply rounded-md;
+    background: rgb(var(--surface-muted));
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  .leaflet-control-attribution {
+    font-size: 9px !important;
+    background: rgb(var(--surface-elevated) / 0.85) !important;
+    color: rgb(var(--ink-muted)) !important;
+    padding: 2px 6px !important;
+  }
+  .leaflet-control-attribution a { color: rgb(var(--accent)) !important; }
+  .leaflet-popup-content-wrapper {
+    background: rgb(var(--surface-elevated)) !important;
+    color: rgb(var(--ink)) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.15) !important;
+  }
+  .leaflet-popup-tip { background: rgb(var(--surface-elevated)) !important; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgb(var(--border-strong)); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--ink-soft)); }
+}
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+@keyframes ambulance-beacon {
+  0%, 49% { background-color: #ef4444; }
+  50%, 100% { background-color: #3b82f6; }
+}
+@keyframes cv-progress {
+  from { width: 0%; }
+  to   { width: var(--cv-progress, 0%); }
+}
+
+.animate-fadeUp  { animation: fadeUp 0.35s ease both; }
+.animate-fadeIn  { animation: fadeIn 0.25s ease both; }
+.animate-pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+.animate-beacon { animation: ambulance-beacon 0.5s step-end infinite; }
+
+#root { position: relative; min-height: 100vh; }
