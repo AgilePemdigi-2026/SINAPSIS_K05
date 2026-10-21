@@ -1,77 +1,67 @@
-# NERIC: Neural-Inspired Traffic Controller
+# SINAPSIS / NERIC: Neuromorphic-Inspired Responsive Intersection Controller
 
-**Implementation of Neuromorphic-Inspired AI to Optimize Urban Traffic Flow Based on IoT Ecosystems**
+**Implementation of Adaptive Neuromorphic AI and Real-Time Perception Layer to Optimize Urban Traffic Flow and Proactive Emergency Routing**
 
-NERIC is an advanced traffic management system designed to address the inefficiencies of traditional time-based traffic signaling. By emulating human cognitive processes—specifically attention and prioritization—NERIC dynamically adjusts traffic signals in real-time based on high-density IoT sensor data.
+SINAPSIS (*Sistem AI Neuromorfik Adaptif Pengendali Arus Lalu Lintas*) / NERIC is an intelligent web-based traffic telemetry and control platform designed for the Transport Department (*Dinas Perhubungan*). By replacing conventional fixed-timer systems, NERIC dynamically regulates signal durations using spiking neuron models (LIF) and provides proactive green corridors for emergency vehicles using Dijkstra routing[cite: 104, 106].
 
 ---
 
-## Authors
-* **Muhammad Rizki Fahrezi**
-* **Aurel Zalsabilla**
-* **Arya Satya Andhika Akbar**
-* **Bima Akbar Rizqullah**
+## Authors (Group 5 - Information Systems)
 
-*Information Systems Study Program, Universitas Airlangga, Indonesia.*
+- **Muhammad Rizki Fahrezi** (187241075) 
+- **Arya Satya Andhika Akbar** (187241003) 
+- **Hassya Azzamahksyari Oksigendaru** (187241019) 
+- **Ryandar Anugrah Fajr** (187241094) 
+
+*Faculty of Science and Technology, Universitas Airlangga, Indonesia.*
 
 ---
 
 ## System Overview
 
-Traditional traffic systems often fail to adapt to sudden spikes in vehicle volume, leading to economic inefficiency and increased carbon emissions. NERIC introduces a Neuromorphic AI approach that:
-1.  **Assesses** real-time traffic conditions via an IoT ecosystem.
-2.  **Predicts** potential congestion points using neural-inspired logic.
-3.  **Optimizes** signal durations dynamically to improve vehicle throughput.
+Traditional traffic signaling fails to adapt dynamically to real-time congestion spikes[cite: 106]. SINAPSIS addresses urban traffic inefficiency through a four-tier architecture:
 
-## Technical Architecture
+1. **Perception Layer (Computer Vision):** Real-time vehicle detection and counting across 4 intersection directions using YOLOv8 and OpenCV.
+2. **Neuromorphic Processing Core:** Leaky Integrate-and-Fire (LIF) artificial neuron logic that translates vehicle density into membrane potential and triggers adaptive signal spikes.
+3. **Proactive Emergency Routing:** Dijkstra-based graph algorithm that preempts signals to automatically open green corridors for emergency vehicles before arrival.
+4. **Command Center Dashboard:** Low-latency web dashboard built with FastAPI, WebSockets, and MQTT for continuous telemetry monitoring and manual intervention.
 
-The system is built upon a robust, scalable backend architecture designed for low-latency processing of time-series data:
+---
 
-* **Core Framework:** FastAPI (Python) for high-performance asynchronous API handling.
-* **Database:** InfluxDB 3.0 (Open Source) for high-ingestion time-series storage.
-* **Messaging Protocol:** MQTT via Mosquitto Broker for seamless IoT sensor integration.
-* **Engine:** Neuromorphic-inspired Spiking Neural Network (SNN) logic for adaptive decision making.
+## Technical Architecture & Stack
+
+- **Backend Framework:** FastAPI (Python 3.11+)
+- **Computer Vision & Tracking:** YOLOv8 (Ultralytics), OpenCV, ByteTrack
+- **Neuromorphic AI Logic:** Custom Leaky Integrate-and-Fire (LIF) Engine using NumPy & SciPy
+- **Emergency Routing Engine:** NetworkX / Dijkstra Algorithm
+- **Time-Series Telemetry DB:** InfluxDB 3.0
+- **Relational DB:** PostgreSQL
+- **Real-Time Streaming:** WebSockets (Dashboard) & MQTT Broker / Mosquitto (Signal Controllers)
+
+---
+
+## System Features
+
+1. **Role-Based Authentication:** Dedicated interfaces and access control for System Administrators and Traffic Officers.
+2. **Real-Time Traffic Monitoring:** Interactive map canvas, intersection status telemetry, V/C ratio metrics, and automated congestion alerts.
+3. **System Administration:** Node registration, AI Spike Threshold calibration, and user management.
+4. **Emergency Green Corridor Request:** Dijkstra routing calculation with visual preemption review and signal override capabilities.
+
+---
 
 ## Prerequisites
 
-To deploy the NERIC backend locally, ensure the following components are installed:
-* Python 3.10 or higher
-* InfluxDB 3 OSS (Local Instance)
-* Mosquitto MQTT Broker
+Ensure the following environments are set up prior to local installation:
+- Python 3.11+
+- PostgreSQL & InfluxDB 3.0 instance
+- Mosquitto MQTT Broker
+- Node.js / Modern Browser (Chrome/Firefox) supporting WebSocket
 
-## Installation and Deployment
+---
+
+## Installation & Deployment
 
 ### 1. Repository Setup
 ```bash
-git clone [https://github.com/yourusername/neric-backend.git](https://github.com/yourusername/neric-backend.git)
-cd neric-backend
-
-2. Environment Configuration
-Create a .env file in the root directory and configure the following variables:
-
-Cuplikan kode
-INFLUXDB_URL=http://localhost:8181
-INFLUXDB_TOKEN=your_administrative_token
-INFLUXDB_DATABASE=neric-data
-MQTT_BROKER=localhost
-MQTT_PORT=1883
-
-3. Virtual Environment and Dependencies
-Bash
-python -m venv venv
-source venv/bin/activate  # Linux/macOS
-# or
-.\venv\Scripts\activate  # Windows
-
-pip install -r requirements.txt
-
-4. Running the Service
-Ensure InfluxDB and Mosquitto services are active, then execute:
-
-Bash
-uvicorn main:app --reload
-
-Data Methodology
-NERIC utilizes a combination of historical traffic datasets and real-time sensor inputs. During the development phase, the system is validated using the Traffic Prediction Dataset to simulate various high-density urban intersection scenarios. Experimental findings indicate a significant reduction in average wait times and improved vehicle flow compared to static signaling methods.
-
-© 2026 NERIC Team - Universitas Airlangga
+git clone [https://github.com/AgilePemdigi-2026/SINAPSIS_K05.git](https://github.com/AgilePemdigi-2026/SINAPSIS_K05.git)
+cd SINAPSIS_K05
