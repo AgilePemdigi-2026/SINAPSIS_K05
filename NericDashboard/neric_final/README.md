@@ -1,4 +1,4 @@
-# NERIC v3 — Multi-Intersection Micro-Simulation Dashboard
+# SINAPSIS v3 — Multi-Intersection Micro-Simulation Dashboard
 **IRaX International Competition — Neuromorphic Intersection Controller**
 
 ## 🚀 Quick Start
