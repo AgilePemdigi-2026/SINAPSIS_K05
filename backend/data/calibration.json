@@ -1,0 +1,150 @@
+{
+  "data": {
+    "timestamp_lengkap": 4344,
+    "latih": 2172,
+    "uji": 2172,
+    "rentang": [
+      "2017-01-01 00:00:00",
+      "2017-06-30 23:00:00"
+    ],
+    "ambang_label_padat_per_jalur": [
+      19,
+      17,
+      17,
+      17
+    ]
+  },
+  "periode_hasil_kalibrasi": {
+    "rush_hours": [
+      [
+        12,
+        13
+      ],
+      [
+        15,
+        16
+      ],
+      [
+        19,
+        23
+      ]
+    ],
+    "night_hours": [
+      [
+        2,
+        9
+      ]
+    ]
+  },
+  "periode_bawaan": {
+    "rush_hours": [
+      [
+        7,
+        9
+      ],
+      [
+        12,
+        13
+      ],
+      [
+        16,
+        19
+      ]
+    ],
+    "night_hours": [
+      [
+        22,
+        24
+      ],
+      [
+        0,
+        5
+      ]
+    ]
+  },
+  "spike_threshold_dasar_hasil_kalibrasi": 0.76,
+  "spike_threshold_dasar_bawaan": 0.55,
+  "hasil_bawaan": {
+    "train": {
+      "precision": 0.339,
+      "recall": 0.9,
+      "f1": 0.492,
+      "spike_rate": {
+        "JAM SIBUK": 0.292,
+        "JAM NORMAL": 0.085,
+        "JAM MALAM": 0.008
+      }
+    },
+    "test": {
+      "precision": 0.503,
+      "recall": 0.924,
+      "f1": 0.652,
+      "spike_rate": {
+        "JAM SIBUK": 0.251,
+        "JAM NORMAL": 0.126,
+        "JAM MALAM": 0.031
+      }
+    }
+  },
+  "hasil_kalibrasi_lengkap": {
+    "train": {
+      "precision": 0.429,
+      "recall": 0.791,
+      "f1": 0.557,
+      "spike_rate": {
+        "JAM SIBUK": 0.275,
+        "JAM NORMAL": 0.024,
+        "JAM MALAM": 0.0
+      }
+    },
+    "test": {
+      "precision": 0.598,
+      "recall": 0.816,
+      "f1": 0.69,
+      "spike_rate": {
+        "JAM SIBUK": 0.291,
+        "JAM NORMAL": 0.05,
+        "JAM MALAM": 0.0
+      }
+    }
+  },
+  "hasil_hanya_threshold": {
+    "threshold": 0.78,
+    "uji": {
+      "precision": 0.599,
+      "recall": 0.776,
+      "f1": 0.676,
+      "spike_rate": {
+        "JAM SIBUK": 0.293,
+        "JAM NORMAL": 0.04,
+        "JAM MALAM": 0.0
+      }
+    }
+  },
+  "indeks_kepadatan_per_jam": [
+    1.052,
+    0.882,
+    0.755,
+    0.693,
+    0.604,
+    0.571,
+    0.585,
+    0.643,
+    0.742,
+    0.863,
+    1.042,
+    1.17,
+    1.202,
+    1.123,
+    1.199,
+    1.222,
+    1.18,
+    1.163,
+    1.169,
+    1.242,
+    1.261,
+    1.252,
+    1.241,
+    1.171
+  ]
+}

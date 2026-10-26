@@ -1,0 +1,148 @@
+{
+  "split": {
+    "latih": "< 2017-03-01",
+    "validasi": "2017-03-01 s.d. < 2017-05-01",
+    "uji": ">= 2017-05-01",
+    "n": {
+      "latih": 36312,
+      "validasi": 5856,
+      "uji": 5856
+    }
+  },
+  "skala_rasio_p95_per_junction": {
+    "1": 77.0,
+    "2": 20.0,
+    "3": 29.0,
+    "4": 14.0
+  },
+  "ambang_padat_rasio_p85": 0.8,
+  "gbm_hiperparameter": {
+    "learning_rate": 0.05,
+    "max_depth": 3,
+    "min_samples_leaf": 60
+  },
+  "snn": {
+    "hidden": 48,
+    "epoch": 100,
+    "best_val_mae": 0.1026,
+    "laju_spike_rata2": 0.287
+  },
+  "model_terbaik_menurut_validasi": "ensemble_gbm_snn",
+  "hasil": {
+    "persistensi": {
+      "val": {
+        "mae": 0.1267,
+        "rmse": 0.1781,
+        "wape": 0.1662
+      },
+      "test": {
+        "mae": 0.1338,
+        "rmse": 0.1999,
+        "wape": 0.1641
+      },
+      "peringatan_dini_uji": {
+        "precision": 0.873,
+        "recall": 0.872,
+        "f1": 0.873
+      },
+      "per_junction_mae_uji": {
+        "1": 0.0891,
+        "2": 0.1557,
+        "3": 0.1157,
+        "4": 0.1748
+      }
+    },
+    "seasonal_naive_24j": {
+      "val": {
+        "mae": 0.1747,
+        "rmse": 0.2612,
+        "wape": 0.229
+      },
+      "test": {
+        "mae": 0.1935,
+        "rmse": 0.3005,
+        "wape": 0.2373
+      },
+      "peringatan_dini_uji": {
+        "precision": 0.811,
+        "recall": 0.796,
+        "f1": 0.803
+      },
+      "per_junction_mae_uji": {
+        "1": 0.1653,
+        "2": 0.2557,
+        "3": 0.1625,
+        "4": 0.1907
+      }
+    },
+    "gradient_boosting": {
+      "val": {
+        "mae": 0.1037,
+        "rmse": 0.1559,
+        "wape": 0.1359
+      },
+      "test": {
+        "mae": 0.1175,
+        "rmse": 0.1836,
+        "wape": 0.1441
+      },
+      "peringatan_dini_uji": {
+        "precision": 0.902,
+        "recall": 0.895,
+        "f1": 0.899
+      },
+      "per_junction_mae_uji": {
+        "1": 0.0692,
+        "2": 0.168,
+        "3": 0.0925,
+        "4": 0.1403
+      }
+    },
+    "snn_lif_terlatih": {
+      "val": {
+        "mae": 0.1026,
+        "rmse": 0.1497,
+        "wape": 0.1345
+      },
+      "test": {
+        "mae": 0.1102,
+        "rmse": 0.1691,
+        "wape": 0.1351
+      },
+      "peringatan_dini_uji": {
+        "precision": 0.886,
+        "recall": 0.895,
+        "f1": 0.89
+      },
+      "per_junction_mae_uji": {
+        "1": 0.0606,
+        "2": 0.1398,
+        "3": 0.0948,
+        "4": 0.1457
+      }
+    },
+    "ensemble_gbm_snn": {
+      "val": {
+        "mae": 0.0998,
+        "rmse": 0.1461,
+        "wape": 0.1308
+      },
+      "test": {
+        "mae": 0.1077,
+        "rmse": 0.167,
+        "wape": 0.1321
+      },
+      "peringatan_dini_uji": {
+        "precision": 0.895,
+        "recall": 0.898,
+        "f1": 0.896
+      },
+      "per_junction_mae_uji": {
+        "1": 0.0611,
+        "2": 0.1371,
+        "3": 0.0917,
+        "4": 0.141
+      }
+    }
+  }
+}

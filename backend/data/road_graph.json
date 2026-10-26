@@ -1,0 +1,15 @@
+{
+  "_catatan": "Graf jalan contoh untuk Dijkstra. Simpul = nama persimpangan hasil seed; time_s = waktu tempuh dasar (detik); arah_masuk = arah jalur di simpul tujuan yang dilewati kendaraan.",
+  "edges": [
+    {"from": "RSUD Dr. Soetomo", "to": "Simpang Gubeng", "time_s": 120, "arah_masuk": "Barat"},
+    {"from": "Simpang Gubeng", "to": "RSUD Dr. Soetomo", "time_s": 120, "arah_masuk": "Timur"},
+    {"from": "Simpang Gubeng", "to": "Simpang Pemuda", "time_s": 150, "arah_masuk": "Selatan"},
+    {"from": "Simpang Pemuda", "to": "Simpang Gubeng", "time_s": 150, "arah_masuk": "Utara"},
+    {"from": "Simpang Pemuda", "to": "Jalan Darmo", "time_s": 140, "arah_masuk": "Utara"},
+    {"from": "Jalan Darmo", "to": "Simpang Pemuda", "time_s": 140, "arah_masuk": "Selatan"},
+    {"from": "Simpang Gubeng", "to": "Simpang Raya", "time_s": 200, "arah_masuk": "Barat"},
+    {"from": "Simpang Raya", "to": "Simpang Gubeng", "time_s": 200, "arah_masuk": "Timur"},
+    {"from": "Simpang Raya", "to": "Jalan Darmo", "time_s": 160, "arah_masuk": "Timur"},
+    {"from": "Jalan Darmo", "to": "Simpang Raya", "time_s": 160, "arah_masuk": "Barat"}
+  ]
+}
