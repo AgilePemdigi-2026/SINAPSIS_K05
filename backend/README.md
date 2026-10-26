@@ -1,6 +1,6 @@
-# SINAPSIS — Sistem AI Neuromorfik Adaptif Pengendali Arus Lalu Lintas
+# SINAPSIS Sistem AI Neuromorfik Adaptif Pengendali Arus Lalu Lintas
 
-*Integrated AI Traffic Flow Analytics & Proactive Emergency Routing Platform — Studi Kasus: Persimpangan Padat*
+*Integrated AI Traffic Flow Analytics & Proactive Emergency Routing Platform Studi Kasus: Persimpangan Padat*
 
 Proyek praktikum **Pembangunan Perangkat Lunak (I4)**, Kelompok 5, Sistem Informasi, Fakultas Sains dan Teknologi, Universitas Airlangga, 2026.
 Klien (studi kasus): Dinas Perhubungan (Dishub).
