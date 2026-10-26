@@ -1,67 +1,38 @@
-# SINAPSIS: Sistem AI Neuromorfik Adaptif Pengendali Arus Lalu Lintas
+# SINAPSIS Sistem AI Neuromorfik Adaptif Pengendali Arus Lalu Lintas
 
-**Implementation of Adaptive Neuromorphic AI and Real-Time Perception Layer to Optimize Urban Traffic Flow and Proactive Emergency Routing**
+*Integrated AI Traffic Flow Analytics & Proactive Emergency Routing Platform Studi Kasus: Persimpangan Padat*
 
-SINAPSIS (*Sistem AI Neuromorfik Adaptif Pengendali Arus Lalu Lintas*) adalah platform telemetri dan kendali lalu lintas cerdas berbasis web yang dirancang khusus untuk Dinas Perhubungan. Menggantikan sistem *fixed-timer* konvensional, SINAPSIS mengatur durasi sinyal lampu lalu lintas secara dinamis menggunakan model neuron buatan Leaky Integrate-and-Fire (LIF) serta menyediakan koridor hijau proaktif untuk kendaraan darurat menggunakan algoritma Dijkstra.
+Proyek praktikum **Pembangunan Perangkat Lunak (I4)**, Kelompok 5, Sistem Informasi, Fakultas Sains dan Teknologi, Universitas Airlangga, 2026.
+Klien (studi kasus): Dinas Perhubungan (Dishub).
 
----
+SINAPSIS mengatur durasi lampu lalu lintas secara adaptif memakai model neuron Leaky Integrate-and-Fire (LIF),
+dilengkapi model prediksi kepadatan yang dilatih dari data dan koridor hijau untuk kendaraan darurat (algoritma Dijkstra).
 
-## Authors (Group 5 - Information Systems)
+## Struktur repositori
 
-- **Muhammad Rizki Fahrezi** (187241075)
-- **Arya Satya Andhika Akbar** (187231003)
-- **Hassya Azzamahksyari Oksigendaru** (187231019) 
-- **Ryandar Anugrah Fajr** (187231094) 
+| Folder | Isi |
+|---|---|
+| `backend/` | Backend FastAPI + SQLite, mesin LIF, model prediksi terlatih, tes otomatis. Petunjuk lengkap: [`backend/README.md`](backend/README.md) |
+| `legacy-neric/` | Arsip prototipe lomba NERIC (MSU iREX 2026). Tidak dipakai di proyek kuliah; disimpan sebagai referensi dan sumber komponen yang mungkin dipakai ulang |
+| `docs/` | Dokumen kerja tim, termasuk [`alur kerja Git`](docs/GIT_WORKFLOW.md) |
 
-*Faculty of Science and Technology, Universitas Airlangga, Indonesia.*
+## Menjalankan backend
 
----
-
-## System Overview
-
-Sistem lalu lintas konvensional sering kali gagal beradaptasi dengan lonjakan kepadatan kendaraan secara mendadak. SINAPSIS menyelesaikan efisiensi lalu lintas perkotaan melalui arsitektur empat tingkatan:
-
-1. **Perception Layer (Computer Vision):** Deteksi dan penghitungan volume kendaraan secara *real-time* di 4 arah persimpangan menggunakan YOLOv8 dan OpenCV.
-2. **Neuromorphic Processing Core:** Logika neuron buatan Leaky Integrate-and-Fire (LIF) yang mengubah akumulasi kepadatan kendaraan menjadi potensial membran (*membrane potential*) dan memicu *spike* keputusan sinyal adaptif.
-3. **Proactive Emergency Routing:** Algoritma graf berbasis Dijkstra yang mengintervensi sinyal lampu untuk membuka koridor hijau (*green corridor*) secara otomatis bagi kendaraan darurat sebelum tiba di persimpangan.
-4. **Command Center Dashboard:** Dashboard pemantauan web berlatensi rendah yang dibangun dengan FastAPI, WebSockets, dan MQTT untuk pemantauan telemetri kontinu serta intervensi manual.
-
----
-
-## Technical Architecture & Stack
-
-- **Backend Framework:** FastAPI (Python 3.11+)
-- **Computer Vision & Tracking:** YOLOv8 (Ultralytics), OpenCV, ByteTrack
-- **Neuromorphic AI Logic:** Custom Leaky Integrate-and-Fire (LIF) Engine menggunakan NumPy & SciPy
-- **Emergency Routing Engine:** NetworkX / Dijkstra Algorithm
-- **Time-Series Telemetry DB:** InfluxDB 3.0
-- **Relational DB:** PostgreSQL
-- **Real-Time Streaming:** WebSockets (Dashboard) & MQTT Broker / Mosquitto (Signal Controllers)
-
----
-
-## System Features
-
-1. **Role-Based Authentication:** Antarmuka khusus dan pembatasan hak akses untuk Administrator dan Petugas Lalu Lintas.
-2. **Real-Time Traffic Monitoring:** Peta *density map* interaktif, daftar telemetri status persimpangan, metrik V/C ratio, serta notifikasi *congestion alert* otomatis.
-3. **System Administration:** Pendaftaran node persimpangan baru, kalibrasi *AI Spike Threshold*, dan manajemen akun pengguna.
-4. **Emergency Green Corridor Request:** Perhitungan rute optimal Dijkstra dengan modal pratinjau rute visual dan kapabilitas *override* sinyal lampu.
-
----
-
-## Prerequisites
-
-Pastikan lingkungan dan dependensi berikut telah siap sebelum instalasi lokal:
-- Python 3.11+
-- PostgreSQL & InfluxDB 3.0 Instance
-- Mosquitto MQTT Broker
-- Node.js / Modern Browser (Chrome/Firefox) yang mendukung WebSockets
-
----
-
-## Installation & Deployment
-
-### 1. Repository Setup
 ```bash
-git clone [https://github.com/AgilePemdigi-2026/SINAPSIS_K05.git](https://github.com/AgilePemdigi-2026/SINAPSIS_K05.git)
-cd SINAPSIS_K05
+cd backend
+python -m venv venv
+source venv/bin/activate          # Windows: .\venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env              # Windows: copy .env.example .env
+uvicorn app.main:app --reload
+```
+
+Dokumentasi API interaktif: `http://127.0.0.1:8000/docs`. Tes: `cd backend && pytest -q`.
+
+## Alur kerja tim
+
+Semua perubahan lewat branch dan Pull Request. Aturan lengkap: [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md).
+
+## Tim
+
+Arya Satya Andhika Akbar, Hassya Azzamahksyari Oksigendaru, Muhammad Rizki Fahrezi, Ryandar Anugrah Fajr.
