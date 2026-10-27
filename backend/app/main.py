@@ -1,10 +1,15 @@
 """Titik masuk aplikasi SINAPSIS API.   Jalankan: uvicorn app.main:app --reload"""
 import asyncio
+import os
 from contextlib import asynccontextmanager
 
 import jwt
-from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
+from pathlib import Path
+
+from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from app import models  # noqa: F401  (daftarkan tabel ke Base)
@@ -38,9 +43,31 @@ for r in (auth.router, monitoring.router, prediction.router, admin.router, emerg
     app.include_router(r)
 
 
+def find_frontend_dir() -> Path | None:
+    """Folder frontend: env FRONTEND_DIR, atau ../frontend (susunan repo), atau app/static."""
+    here = Path(__file__).resolve()
+    candidates = [here.parents[2] / "frontend", here.parent / "static"]
+    if os.getenv("FRONTEND_DIR"):
+        candidates.insert(0, Path(os.environ["FRONTEND_DIR"]))
+    return next((c for c in candidates if (c / "dashboard.html").is_file()), None)
+
+
+FRONTEND_DIR = find_frontend_dir()
+if FRONTEND_DIR is not None:
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+
+
 @app.get("/", tags=["Umum"])
 def root():
-    return {"app": settings.APP_NAME, "versi": settings.VERSION, "docs": "/docs"}
+    return {"app": settings.APP_NAME, "versi": settings.VERSION, "docs": "/docs", "dashboard": "/dashboard"}
+
+
+@app.get("/dashboard", include_in_schema=False)
+def dashboard_page():
+    """Halaman Dashboard Pemantauan Lalu Lintas (HTML/CSS/JS statis dari folder frontend)."""
+    if FRONTEND_DIR is None:
+        raise HTTPException(404, "Folder frontend tidak ditemukan. Taruh di ../frontend atau atur FRONTEND_DIR.")
+    return FileResponse(FRONTEND_DIR / "dashboard.html")
 
 
 @app.get("/api/health", tags=["Umum"])

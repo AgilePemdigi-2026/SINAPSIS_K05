@@ -53,6 +53,7 @@ class SensorHub:
         self.offline: set[int] = set()
         self.history: dict[int, deque] = {}  # rasio kepadatan per langkah (maks 24), tiap elemen = 4 jalur
         self.last_ts: dict[int, datetime] = {}
+        self.last_result: dict[int, dict] = {}  # hasil siklus terakhir per simpang (untuk diagram dashboard)
 
     def reset(self):
         self.__init__()
@@ -140,6 +141,7 @@ def run_cycle(db: Session, persimpangan: Persimpangan, counts: list[int] | None 
                                durasi_detik=lane["duration"]))
     db.commit()
     result["id_persimpangan"] = persimpangan.id_persimpangan
+    hub.last_result[persimpangan.id_persimpangan] = result
     return result
 
 
@@ -148,6 +150,35 @@ def status_label(max_count: int) -> str:
     if ratio >= settings.EMERGENCY_RATIO:
         return "Kritis"
     return "Padat" if ratio >= 0.5 else "Lancar"
+
+
+def _detail(res: dict | None, offline: bool) -> dict:
+    """Rincian per jalur dari siklus terakhir (None bila belum ada siklus sejak server menyala)."""
+    if not res:
+        return {"jalur": [], "periode": None, "siklus": None, "ambang": None, "koridor_aktif": False,
+                "jalur_terpadat": None, "densitas_maks_pct": None, "model_prediksi": None,
+                "prediksi_maks_pct": None, "jumlah_spike": 0, "status_algoritma": None, "data_usang": offline}
+    lanes = [{
+        "arah": l["arah"], "jumlah_kendaraan": l["vehicle_count"],
+        "densitas_pct": round(100 * l["vehicle_count"] / settings.MAX_VEHICLES),
+        "sinyal": l["signal"], "durasi": l["duration"], "spike": l["spike"],
+        "membrane_potential": l["membrane_potential"], "peringkat": l["priority_rank"],
+        "prediksi_rasio": l["predicted_ratio"], "alasan": l["reason"],
+    } for l in res["lanes"]]
+    top = max(lanes, key=lambda x: x["jumlah_kendaraan"])
+    preds = [l["prediksi_rasio"] for l in lanes if l["prediksi_rasio"] is not None]
+    n_spike = sum(1 for l in lanes if l["spike"])
+    if offline:
+        algo = "Sensor Offline"
+    elif res["corridor_active"]:
+        algo = "Koridor hijau aktif"
+    else:
+        algo = f"LIF adaptif · {n_spike} spike"
+    return {"jalur": lanes, "periode": res["period"], "siklus": res["cycle"], "ambang": res["threshold"],
+            "koridor_aktif": res["corridor_active"], "jalur_terpadat": {"arah": top["arah"], "jumlah": top["jumlah_kendaraan"]},
+            "densitas_maks_pct": top["densitas_pct"], "model_prediksi": res.get("prediction_model"),
+            "prediksi_maks_pct": round(100 * max(preds)) if preds else None, "jumlah_spike": n_spike,
+            "status_algoritma": algo, "data_usang": offline}
 
 
 def dashboard(db: Session) -> dict:
@@ -163,21 +194,30 @@ def dashboard(db: Session) -> dict:
             ).all()]
         offline = p.id_persimpangan in hub.offline
         label = "Sensor Offline" if offline else (status_label(max(counts)) if counts else "Belum ada data")
-        items.append({
+        ts = hub.last_ts.get(p.id_persimpangan)
+        item = {
             "id_persimpangan": p.id_persimpangan, "nama_lokasi": p.nama_lokasi, "status": label,
             "jumlah_kendaraan": sum(counts), "sensor_offline": offline,
             "terakhir_diperbarui": latest.isoformat() if latest else None,
-        })
+            "waktu_data": ts.isoformat() if ts else None,
+        }
+        item.update(_detail(hub.last_result.get(p.id_persimpangan), offline))
+        items.append(item)
         if label == "Kritis":
             alerts.append(p.nama_lokasi)
     any_offline = any(i["sensor_offline"] for i in items)
+    pred = get_predictor()
+    pilot = next((i for i in items if i["id_persimpangan"] == settings.PILOT_INTERSECTION_ID), None)
     return {
         "diperbarui": utcnow().isoformat(),
+        "waktu_data": pilot["waktu_data"] if pilot else None,
         "simpang": items,
         "congestion_alert": bool(alerts),
         "pesan_alert": f"Peringatan: Kemacetan Terdeteksi di Persimpangan {', '.join(alerts)}" if alerts else None,
         "pesan_sensor": "Data pemantauan tidak tersedia untuk beberapa simpang." if any_offline else None,
         "total_kendaraan": sum(i["jumlah_kendaraan"] for i in items),
+        "kapasitas_jalur": settings.MAX_VEHICLES,
+        "ambang_peringatan_dini_pct": round(100 * pred.congestion_ratio) if pred else None,
     }
 
 
