@@ -1,4 +1,4 @@
-# frontend — SINAPSIS
+# frontend SINAPSIS
 
 Antarmuka web SINAPSIS. Pada Sprint 1 berisi **Dashboard Pemantauan Lalu Lintas (F2)** berupa HTML, CSS, dan JavaScript murni
 (sesuai SRS: "Web Application Modern: HTML5, CSS3, JavaScript, Map Canvas Vector"). Tidak perlu Node atau proses build.
