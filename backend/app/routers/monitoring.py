@@ -4,22 +4,23 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import ROLE_ADMIN, ROLE_PETUGAS, require_roles
+from app.core.security import ROLE_ADMIN, ROLE_PETUGAS, optional_roles, require_roles
 from app.models import Deteksi, Jalur, KeputusanSinyal, Persimpangan
 from app.schemas import ManualCycleRequest
 from app.services import monitoring_service as svc
 
 router = APIRouter(prefix="/api/monitoring", tags=["Pantau Lalu Lintas"])
 _both = require_roles(ROLE_ADMIN, ROLE_PETUGAS)
+_view = optional_roles(ROLE_ADMIN, ROLE_PETUGAS)  # terbuka tanpa login saat DASHBOARD_PUBLIC=true
 
 
 @router.get("/dashboard")
-def get_dashboard(db: Session = Depends(get_db), _=Depends(_both)):
+def get_dashboard(db: Session = Depends(get_db), _=Depends(_view)):
     return svc.dashboard(db)
 
 
 @router.post("/refresh")
-def refresh(db: Session = Depends(get_db), _=Depends(_both)):
+def refresh(db: Session = Depends(get_db), _=Depends(_view)):
     """Muat ulang data: jalankan satu siklus di semua persimpangan; coba sambung ulang sensor."""
     for p in db.scalars(select(Persimpangan)).all():
         svc.run_cycle(db, p)
@@ -42,7 +43,7 @@ def run_one_cycle(req: ManualCycleRequest, db: Session = Depends(get_db), _=Depe
 
 
 @router.get("/history/{id_persimpangan}")
-def history(id_persimpangan: int, limit: int = 20, db: Session = Depends(get_db), _=Depends(_both)):
+def history(id_persimpangan: int, limit: int = 20, db: Session = Depends(get_db), _=Depends(_view)):
     p = db.get(Persimpangan, id_persimpangan)
     if p is None:
         raise HTTPException(404, "Persimpangan tidak ditemukan.")
