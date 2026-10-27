@@ -22,7 +22,7 @@ deteksi kendaraan dari video (YOLOv8) belum diaktifkan.
 | `backend/` | API FastAPI + SQLite, mesin LIF, model prediksi terlatih, tes otomatis. Detail: [`backend/README.md`](backend/README.md) |
 | `frontend/` | Antarmuka web (Dashboard Pemantauan). Detail: [`frontend/README.md`](frontend/README.md) |
 | `docs/` | Dokumen kerja tim, termasuk [alur kerja Git](docs/GIT_WORKFLOW.md) |
-| `legacy-neric/` | Arsip prototipe lomba NERIC (MSU iREX 2026). Tidak dirawat dan tidak dipakai |
+| `legacy-neric/` | Arsip prototipe lomba NERIC (MSU iREX 2026). |
 
 ## Cabang (branch) dan versi yang dijalankan
 
