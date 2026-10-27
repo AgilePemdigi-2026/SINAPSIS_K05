@@ -14,6 +14,10 @@ class Settings:
     ALGORITHM = "HS256"
     ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", 480))
     BCRYPT_ROUNDS = int(os.getenv("BCRYPT_ROUNDS", 12))
+    # MODE SPRINT 1: dashboard pemantauan dapat dibuka tanpa login (fitur Login = F1, Sprint 2).
+    # Hanya endpoint baca/refresh pemantauan & prediksi yang terbuka; Kelola Sistem dan Rute Darurat
+    # tetap wajib login. Setelah halaman login selesai, set DASHBOARD_PUBLIC=false.
+    DASHBOARD_PUBLIC = os.getenv("DASHBOARD_PUBLIC", "true").lower() == "true"
     SEED_DEMO_DATA = os.getenv("SEED_DEMO_DATA", "true").lower() == "true"
 
     # Jalur persimpangan (4 arah, sesuai CDM: Persimpangan 1-N Jalur)

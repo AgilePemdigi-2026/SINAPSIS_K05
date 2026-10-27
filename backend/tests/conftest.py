@@ -4,6 +4,7 @@ import tempfile
 _tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp.name}"
 os.environ["SEED_DEMO_DATA"] = "true"
+os.environ["DASHBOARD_PUBLIC"] = "false"  # tes default menguji mode terkunci; mode publik diuji khusus
 os.environ["BCRYPT_ROUNDS"] = "4"  # mempercepat tes; produksi pakai default 12
 
 import pytest  # noqa: E402

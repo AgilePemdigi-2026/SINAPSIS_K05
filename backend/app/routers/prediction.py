@@ -3,13 +3,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import ROLE_ADMIN, ROLE_PETUGAS, require_roles
+from app.core.security import ROLE_ADMIN, ROLE_PETUGAS, optional_roles
 from app.ml.predictor import get_predictor
 from app.models import Persimpangan
 from app.services import monitoring_service as svc
 
 router = APIRouter(prefix="/api/prediction", tags=["Prediksi AI"])
-_both = require_roles(ROLE_ADMIN, ROLE_PETUGAS)
+_both = optional_roles(ROLE_ADMIN, ROLE_PETUGAS)  # terbuka tanpa login saat DASHBOARD_PUBLIC=true
 
 
 @router.get("/model-info")

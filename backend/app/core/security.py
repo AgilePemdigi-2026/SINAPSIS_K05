@@ -63,3 +63,17 @@ def require_roles(*roles: str):
         return user
 
     return checker
+
+
+def optional_roles(*roles: str):
+    """Seperti require_roles, tetapi terbuka tanpa login bila DASHBOARD_PUBLIC=true (mode Sprint 1)."""
+
+    def checker(cred: HTTPAuthorizationCredentials | None = Depends(_bearer), db: Session = Depends(get_db)):
+        if settings.DASHBOARD_PUBLIC:
+            return None
+        user = get_current_user(cred, db)
+        if user.role not in roles:
+            raise HTTPException(403, "Anda tidak memiliki hak akses ke fitur ini.")
+        return user
+
+    return checker
