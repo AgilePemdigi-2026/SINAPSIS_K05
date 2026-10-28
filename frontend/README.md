@@ -47,11 +47,24 @@ Tiap `simpang[]`: `id_persimpangan`, `nama_lokasi`, `status` (`Lancar`, `Padat`,
 Tiap `jalur[]`: `arah` (Utara, Selatan, Timur, Barat), `jumlah_kendaraan`, `densitas_pct`, `sinyal` (`HIJAU`/`MERAH`), `durasi`,
 `spike`, `membrane_potential`, `peringkat`, `prediksi_rasio`, `alasan`.
 
-## Aturan tampilan (dari Data Mockup)
+## Susunan halaman
 
-- Tema merah SINAPSIS pada bilah atas; satu elemen dominan per layar (di dashboard: diagram persimpangan).
+1. **Bilah atas dan bilah status**: navigasi, jam, status sistem, Refresh Data, dan mode otomatis.
+2. **Banner**: peringatan kemacetan (merah), sensor offline (kuning), dan galat koneksi (gelap).
+3. **Ringkasan jaringan**: lima kartu (jumlah simpang dan statusnya, total kendaraan, kemacetan, peringatan dini, sensor).
+4. **Diagram persimpangan** (elemen utama): gambar SVG empat lengan dengan antrean mobil di lajur masuk (lalu lintas sisi kiri), zebra cross,
+   lampu per lengan, dan kartu info tiap arah. Satu ikon mobil mewakili sekitar 2–3 kendaraan (maksimal 8 ikon).
+5. **Panel kanan**: status persimpangan (klik untuk mengganti diagram), prediksi jam berikutnya (kepadatan sekarang dibanding prediksi), dan umpan CCTV.
+6. **Ringkasan per persimpangan**: tabel dari siklus terakhir.
+
+## Aturan tampilan
+
+- Tema merah SINAPSIS hanya pada bilah atas dan keadaan kritis; selebihnya netral supaya data yang menonjol.
+- Satu elemen dominan per layar (di dashboard: diagram persimpangan).
+- Huruf biasa (sentence case) dan font sistem; tanpa huruf kapital berspasi atau font monospace untuk teks.
 - Hijau dipakai hanya untuk arti harfiah (lampu hijau, status Lancar, aksi positif).
 - Jangan menampilkan angka yang tidak punya sumber data (mis. kecepatan rata-rata): dataset hanya berisi jumlah kendaraan.
+- Lampu merah tidak menampilkan hitungan mundur karena mesin tidak menghitungnya; angka pada lampu hijau adalah durasi hijau.
 
 ## Yang belum ada (Sprint berikutnya)
 
