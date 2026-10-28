@@ -3,40 +3,40 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SINAPSIS — Dashboard Pemantauan Lalu Lintas</title>
+  <title>SINAPSIS Dashboard Pemantauan Lalu Lintas</title>
   <link rel="stylesheet" href="/static/dashboard.css">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
       <span class="logo">SINAPSIS</span>
-      <span class="brand-sub">DISHUB · TRAFFIC AI TELEMETRY</span>
+      <span class="brand-sub">Dinas Perhubungan · Telemetri lalu lintas</span>
     </div>
     <nav class="nav" aria-label="Navigasi utama">
       <a class="active" aria-current="page">Dashboard</a>
-      <a class="disabled" title="Segera hadir (Kelola Sistem)">Kelola Sistem</a>
-      <a class="disabled" title="Segera hadir (Permintaan Darurat)">Permintaan Darurat</a>
+      <a class="disabled" title="Segera hadir">Kelola Sistem</a>
+      <a class="disabled" title="Segera hadir">Permintaan Darurat</a>
     </nav>
     <div class="sysinfo">
       <span id="clock" class="clock">--</span>
-      <span id="sysState" class="sysstate">● MEMUAT</span>
+      <span id="sysState" class="sysstate">Memuat</span>
     </div>
   </header>
 
   <div class="statusbar">
     <div class="statusbar-left">
-      <span id="dataTime">Data Lalu Lintas Real-Time Diperbarui: --</span>
+      <span id="dataTime" class="data-time">Data Lalu Lintas Real-Time Diperbarui: --</span>
       <span id="simTime" class="muted"></span>
     </div>
     <div class="statusbar-right">
       <label class="auto"><input type="checkbox" id="autoToggle" checked> Mode otomatis</label>
       <select id="autoInterval" aria-label="Interval pembaruan otomatis">
-        <option value="3000">3 dtk</option>
-        <option value="5000" selected>5 dtk</option>
-        <option value="10000">10 dtk</option>
+        <option value="3000">3 detik</option>
+        <option value="5000" selected>5 detik</option>
+        <option value="10000">10 detik</option>
       </select>
-      <span id="modeLabel" class="mode">MODE: OTOMATIS</span>
-      <button id="btnRefresh" class="btn-primary" type="button">⟳ Refresh Data</button>
+      <span id="modeLabel" class="mode">Mode: otomatis</span>
+      <button id="btnRefresh" class="btn" type="button">Refresh Data</button>
     </div>
   </div>
 
@@ -47,55 +47,64 @@
     <div id="toast" class="toast" hidden></div>
   </div>
 
-  <main class="grid">
-    <section class="panel hero" aria-labelledby="diagramTitle">
-      <div class="panel-head">
-        <h2 id="diagramTitle">DIAGRAM SKEMATIK PERSIMPANGAN AKTIF</h2>
-        <label class="pick">Persimpangan
-          <select id="selSimpang"></select>
-        </label>
-      </div>
-      <div id="diagram" class="diagram" role="img" aria-label="Diagram skematik persimpangan"></div>
-      <div id="metrics" class="metrics"></div>
-    </section>
+  <main class="page">
+    <section id="kpis" class="kpis" aria-label="Ringkasan jaringan"></section>
 
-    <aside class="side">
-      <section class="panel" aria-labelledby="listTitle">
-        <div class="panel-head"><h2 id="listTitle">INTERSECTION STATUS LIST</h2><span id="listCount" class="muted"></span></div>
-        <div class="list-head"><span>Nama persimpangan</span><span>Status</span><span class="num">Kendaraan</span></div>
-        <div id="statusList" class="status-list"></div>
-        <p class="note">Kendaraan = jumlah pada siklus terakhir (4 jalur).</p>
-      </section>
-
-      <section class="panel" aria-labelledby="predTitle">
-        <div class="panel-head"><h2 id="predTitle">PREDIKSI JAM BERIKUTNYA</h2><span id="predModel" class="muted"></span></div>
-        <div id="predPanel"></div>
-      </section>
-
-      <section class="panel" aria-labelledby="cctvTitle">
-        <div class="panel-head"><h2 id="cctvTitle">CCTV LIVE FEED</h2></div>
-        <div class="cctv">
-          <p><strong>Umpan video belum tersambung.</strong></p>
-          <p>Pada proyek ini sumber video berupa rekaman; deteksi kendaraan dari video (YOLOv8) belum diaktifkan. Jumlah kendaraan saat ini berasal dari dataset lalu lintas yang diputar ulang.</p>
+    <div class="grid">
+      <section class="panel hero" aria-labelledby="diagramTitle">
+        <div class="panel-head">
+          <h2 id="diagramTitle">Diagram skematik persimpangan aktif</h2>
+          <label class="pick">Persimpangan
+            <select id="selSimpang"></select>
+          </label>
         </div>
+        <div id="diagram" class="diagram"></div>
+        <p class="legend">Satu ikon mobil mewakili sekitar 2–3 kendaraan (maksimal 8 ikon per lengan). Lajur masuk berada di sisi kiri jalan.
+          Lampu menyala sesuai keputusan terakhir mesin LIF.</p>
+        <div id="metrics" class="metrics"></div>
       </section>
-    </aside>
-  </main>
 
-  <section class="panel telemetry" aria-labelledby="telTitle">
-    <div class="panel-head"><h2 id="telTitle">SURVEILLANCE TELEMETRY MATRIX</h2><span class="muted">Ringkasan per persimpangan dari siklus terakhir</span></div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Persimpangan</th><th class="num">Total kendaraan</th><th>Jalur terpadat</th>
-            <th class="num">Densitas maks</th><th>Periode (ambang)</th><th class="num">Prediksi jam depan</th><th>Status algoritma</th>
-          </tr>
-        </thead>
-        <tbody id="telemetryBody"></tbody>
-      </table>
+      <aside class="side">
+        <section class="panel" aria-labelledby="listTitle">
+          <div class="panel-head"><h2 id="listTitle">Status persimpangan</h2><span id="listCount" class="muted"></span></div>
+          <div class="list-head"><span>Persimpangan</span><span>Status</span><span class="num">Kendaraan</span></div>
+          <div id="statusList" class="status-list"></div>
+          <p class="note">Kendaraan = jumlah pada siklus terakhir (4 jalur). Bilah = kepadatan jalur terpadat.</p>
+        </section>
+
+        <section class="panel" aria-labelledby="predTitle">
+          <div class="panel-head"><h2 id="predTitle">Prediksi jam berikutnya</h2><span id="predModel" class="muted"></span></div>
+          <div id="predPanel"></div>
+        </section>
+
+        <section class="panel" aria-labelledby="cctvTitle">
+          <div class="panel-head"><h2 id="cctvTitle">Umpan CCTV</h2></div>
+          <div class="cctv">
+            <svg viewBox="0 0 48 32" width="44" height="30" aria-hidden="true"><rect x="2" y="6" width="30" height="20" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M32 13l12-6v18l-12-6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+            <div>
+              <p><strong>Video belum tersambung</strong></p>
+              <p>Deteksi kendaraan dari video (YOLOv8) belum diaktifkan. Jumlah kendaraan saat ini berasal dari dataset lalu lintas yang diputar ulang.</p>
+            </div>
+          </div>
+        </section>
+      </aside>
     </div>
-  </section>
+
+    <section class="panel telemetry" aria-labelledby="telTitle">
+      <div class="panel-head"><h2 id="telTitle">Ringkasan per persimpangan</h2><span class="muted">Dari siklus terakhir</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Persimpangan</th><th class="num">Total kendaraan</th><th>Jalur terpadat</th>
+              <th class="num">Densitas maks</th><th>Periode (ambang spike)</th><th class="num">Prediksi jam depan</th><th>Status algoritma</th>
+            </tr>
+          </thead>
+          <tbody id="telemetryBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
 
   <footer class="footer">
     <span>SINAPSIS · Pusat Pengendalian Lalu Lintas Terpadu Dinas Perhubungan</span>
