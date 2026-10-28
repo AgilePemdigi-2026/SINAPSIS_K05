@@ -1,4 +1,4 @@
-# Alur Kerja Git Kelompok 5 — SINAPSIS
+# Alur Kerja Git Kelompok 5  SINAPSIS
 
 Repo: `AgilePemdigi-2026/SINAPSIS_K05`. Alur ini disepakati kelompok: tiap anggota punya branch sendiri untuk mencatat progres dan kontribusi,
 tiap sprint punya branch sendiri, dan PM meninjau sebelum pekerjaan masuk ke branch sprint.
@@ -6,14 +6,14 @@ tiap sprint punya branch sendiri, dan PM meninjau sebelum pekerjaan masuk ke bra
 ## Gambaran
 
 ```
-main            ●─────────────────────────●──────────────────────●   hasil akhir tiap sprint (selalu bisa dijalankan)
-                 \                       ▲ PM merge setelah       ▲
-sprint-1          ●──●─────●──────●──────● Sprint Review           │
+main              ●─────────────────────────●────────────── ──────●   hasil akhir tiap sprint (selalu bisa dijalankan)
+                                         ▲ PM merge setelah       ▲
+sprint-1          ●──●─────●──────●──────● Sprint Review          │
                    ▲        ▲      ▲                              │
               PR, ditinjau PM                                     │
                    │        │      │                              │
-dev/andhika   ●──●─┘   ●──●─┘      │                              │
-dev/fahrezi   ●───────────●────────┘            sprint-2 dibuat dari main setelah Sprint 1 selesai
+dev/(nama)    ●──●─┘   ●──●─┘      │                              │
+dev/(nama)    ●───────────●────────┘            sprint-2 dibuat dari main setelah Sprint 1 selesai
 ```
 
 ## Peran tiap branch
