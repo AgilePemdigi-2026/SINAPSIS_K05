@@ -14,7 +14,7 @@ def public(monkeypatch):
 def test_dashboard_page_and_assets_served(client):
     page = client.get("/dashboard")
     assert page.status_code == 200 and "text/html" in page.headers["content-type"]
-    assert "DIAGRAM SKEMATIK PERSIMPANGAN AKTIF" in page.text and "Refresh Data" in page.text
+    assert "Diagram skematik persimpangan aktif" in page.text and "Refresh Data" in page.text
     assert client.get("/static/dashboard.js").status_code == 200
     assert client.get("/static/dashboard.css").status_code == 200
     assert client.get("/").json()["dashboard"] == "/dashboard"

@@ -12,11 +12,23 @@ Login (F1) tidak termasuk Sprint 1, sehingga dashboard dibuka tanpa login.
 - Payload dashboard diperkaya: rincian per jalur (jumlah kendaraan, densitas, sinyal, durasi, spike, peringkat, prediksi), periode, ambang, jalur terpadat, status algoritma, waktu data, dan ambang peringatan dini.
 - 7 tes baru; total **53 tes lulus** (52 lulus dan 1 dilewati bila folder `frontend/` tidak ada).
 
+### Revisi tampilan (27 Oktober 2026)
+
+Tampilan awal dinilai terlalu seperti buatan templat dan diagram persimpangannya kurang terbaca. Perubahan:
+
+- Gaya lebih tenang: font sistem, huruf biasa, bilah tabel terang, warna merah hanya untuk bilah atas dan keadaan kritis.
+- Diagram persimpangan digambar seperti jalan sungguhan: aspal, marka, zebra cross, garis henti, antrean mobil di lajur masuk sisi kiri,
+  kepala lampu per lengan, dan kartu info tiap arah (jumlah, persentase, bilah kepadatan, tanda Spike dan Koridor).
+- Lima kartu ringkasan jaringan di atas diagram.
+- Daftar status memuat bilah kepadatan; panel prediksi membandingkan kepadatan sekarang dengan prediksi jam berikutnya.
+- Tata letak memakai flexbox biasa agar konsisten di berbagai browser.
+- Lampu merah menampilkan teks "Merah", bukan angka. Angka sebelumnya adalah jatah hijau berikutnya sehingga menyesatkan.
+
 ## 2. Pemetaan ke SRS
 
 | Persyaratan | Pemenuhan |
 |---|---|
-| REQ-7 Traffic Density Map, Intersection Status List, telemetri | Diagram skematik (SVG) dengan antrean per jalur, daftar status, matriks telemetri |
+| REQ-7 Traffic Density Map, Intersection Status List, telemetri | Diagram skematik (SVG) dengan antrean mobil per jalur, daftar status, ringkasan per persimpangan |
 | REQ-9 Peringatan kemacetan | Banner merah "Peringatan: Kemacetan Terdeteksi di Persimpangan ..." |
 | REQ-10 Sensor Offline | Banner "Data pemantauan tidak tersedia untuk beberapa simpang." dan status "Sensor Offline" pada daftar |
 | REQ-11 Refresh Data | Tombol Refresh Data dengan pesan "Data lalu lintas berhasil dimuat ulang." |
@@ -48,7 +60,7 @@ Buka `http://127.0.0.1:8000/dashboard`. Dashboard terisi sendiri pada pembukaan 
 ## 5. Status uji
 
 - 53 tes pytest lulus.
-- Skrip dashboard dijalankan di lingkungan DOM (jsdom) terhadap server sungguhan: render daftar status, diagram, metrik, prediksi, telemetri, interaksi pilih simpang, tombol Refresh, mode otomatis, serta kondisi alert, sensor offline, belum ada data, dan server mati. Tidak ada galat JavaScript.
+- Skrip dashboard dijalankan di lingkungan DOM (jsdom) dan diagramnya dirender menjadi gambar untuk diperiksa secara visual terhadap server sungguhan: render daftar status, diagram, metrik, prediksi, telemetri, interaksi pilih simpang, tombol Refresh, mode otomatis, serta kondisi alert, sensor offline, belum ada data, dan server mati. Tidak ada galat JavaScript.
 - **Belum diuji di browser sungguhan.** Tampilan visual (warna, jarak, tata letak responsif) belum dilihat langsung dan perlu dicek di Chrome atau Edge.
 
 ## 6. Keterbatasan
