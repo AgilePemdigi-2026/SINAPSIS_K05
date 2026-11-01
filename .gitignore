@@ -70,3 +70,14 @@ Mosquitto/
 
 # yes
 jakarta-java-indonesia/
+
+*.pt
+*.onnx
+*.weights
+*.mp4
+*.avi
+*.zip
+node_modules/
+venv/
+.venv/
+runs/
