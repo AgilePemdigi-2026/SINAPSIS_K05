@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - SINAPSIS DISHUB</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- LOGO KEMENHUB DISHUB DI POJOK KANAN ATAS LAYAR --- */
+        .page-top-right-logos {
+            position: fixed;
+            top: 24px;
+            right: 32px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 8px 18px;
+            border-radius: 40px;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.95);
+            box-shadow: 0 8px 24px rgba(11, 9, 59, 0.08);
+        }
+
+        .page-top-right-logos img {
+            height: 38px;
+            width: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+
+        .page-top-right-logos .divider {
+            width: 1.5px;
+            height: 26px;
+            background-color: #cbd5e1;
+        }
+
+        /* --- BACKGROUND MOVING BLOBS --- */
+        .bg-blobs {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.45;
+            animation: moveBlob 16s infinite alternate ease-in-out;
+        }
+
+        .blob-1 {
+            width: 480px;
+            height: 480px;
+            background: #152c70;
+            top: -120px;
+            left: -120px;
+            animation-duration: 18s;
+        }
+
+        .blob-2 {
+            width: 420px;
+            height: 420px;
+            background: #4672a8;
+            bottom: -120px;
+            right: -60px;
+            animation-duration: 22s;
+        }
+
+        .blob-3 {
+            width: 320px;
+            height: 320px;
+            background: #e8c559;
+            top: 35%;
+            left: 50%;
+            opacity: 0.3;
+            animation-duration: 14s;
+        }
+
+        @keyframes moveBlob {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(70px, -40px) scale(1.1); }
+            100% { transform: translate(-50px, 50px) scale(0.95); }
+        }
+
+        /* --- GLASSMORPHISM MAIN CONTAINER --- */
+        .glass-card {
+            position: relative;
+            z-index: 2;
+            width: 90%;
+            max-width: 940px;
+            height: 560px;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.85);
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(11, 9, 59, 0.1), 
+                        0 1px 3px rgba(0, 0, 0, 0.05);
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- LEFT SIDE: FORM LOGIN --- */
+        .form-section {
+            flex: 1;
+            padding: 50px 48px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .logo-icon {
+            width: 14px;
+            height: 14px;
+            background-color: #e8c559;
+            border-radius: 3px;
+            transform: rotate(45deg);
+            box-shadow: 0 0 10px rgba(232, 197, 89, 0.6);
+        }
+
+        .brand-logo span {
+            font-size: 14px;
+            font-weight: 800;
+            color: #0b093b;
+            letter-spacing: 1.5px;
+        }
+
+        .form-section h2 {
+            font-size: 28px;
+            font-weight: 800;
+            color: #0b093b;
+            margin-bottom: 6px;
+        }
+
+        .form-section p.subtitle {
+            font-size: 13px;
+            color: #4672a8;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: #0b093b;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.85);
+            border: 1.5px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #0b093b;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .form-group input:focus {
+            background: #ffffff;
+            border-color: #152c70;
+            box-shadow: 0 0 0 3px rgba(21, 44, 112, 0.15);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 13px;
+            background-color: #0b093b;
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(11, 9, 59, 0.25);
+        }
+
+        .btn-submit:hover {
+            background-color: #152c70;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(21, 44, 112, 0.35);
+        }
+
+        .alert-box {
+            background-color: #fef2f2;
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-top: 16px;
+            display: none;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        /* --- RIGHT SIDE: HIGH-TECH AI NEURAL ART --- */
+        .art-section {
+            flex: 1.15;
+            position: relative;
+            background: radial-gradient(circle at center, #152c70 0%, #0b093b 100%);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #neuralCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .ai-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px dashed rgba(232, 197, 89, 0.35);
+            z-index: 2;
+            pointer-events: none;
+            animation: spinRing 25s linear infinite;
+        }
+
+        .ai-ring-1 {
+            width: 280px;
+            height: 280px;
+            border-top: 2px solid #e8c559;
+        }
+
+        .ai-ring-2 {
+            width: 220px;
+            height: 220px;
+            border-right: 2px solid #4672a8;
+            animation-duration: 18s;
+            animation-direction: reverse;
+        }
+
+        @keyframes spinRing {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .art-overlay {
+            position: relative;
+            z-index: 3;
+            color: #ffffff;
+            text-align: center;
+            padding: 32px 28px;
+            background: rgba(11, 9, 59, 0.45);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            width: 78%;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .art-overlay .badge {
+            display: inline-block;
+            background: rgba(232, 197, 89, 0.2);
+            color: #e8c559;
+            border: 1px solid #e8c559;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .art-overlay h3 {
+            font-size: 22px;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 8px;
+            letter-spacing: 1.5px;
+        }
+
+        .art-overlay p {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 400;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LOGO KEMENHUB DISHUB DI POJOK KANAN ATAS LAYAR -->
+    <div class="page-top-right-logos">
+        <img src="/static/images/logo_kemenhub.png" alt="Logo Kemenhub">
+        <div class="divider"></div>
+        <img src="/static/images/lambang_dishub.png" alt="Lambang Dishub">
+    </div>
+
+    <!-- BACKGROUND BLOBS GERAK -->
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <!-- MAIN GLASSMORPHISM CONTAINER -->
+    <div class="glass-card">
+        
+        <!-- LEFT: FORM SECTION -->
+        <div class="form-section">
+            <div class="brand-logo">
+                <div class="logo-icon"></div>
+                <span>SINAPSIS DISHUB</span>
+            </div>
+
+            <h2>Sign In</h2>
+            <p class="subtitle">Masuk ke sistem pemantauan lalu lintas</p>
+
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="Masukkan username" autocomplete="off">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Masukkan password">
+            </div>
+
+            <button class="btn-submit" onclick="executeLogin()">Masuk Ke Sistem</button>
+
+            <div id="errorNotification" class="alert-box"></div>
+        </div>
+
+        <!-- RIGHT: NEURAL AI ART SECTION -->
+        <div class="art-section">
+            <canvas id="neuralCanvas"></canvas>
+            
+            <div class="ai-ring ai-ring-1"></div>
+            <div class="ai-ring ai-ring-2"></div>
+
+            <div class="art-overlay">
+                <span class="badge">AI NEUROMORPHIC</span>
+                <h3>SINAPSIS</h3>
+                <p>Traffic Control & Real-Time Intelligent Monitoring System</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 1. NEURAL NETWORK CANVAS ANIMATION ---
+        const canvas = document.getElementById('neuralCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        const particles = [];
+        const particleCount = 45;
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.vx = (Math.random() - 0.5) * 0.8;
+                this.vy = (Math.random() - 0.5) * 0.8;
+                this.radius = Math.random() * 2 + 1;
+                this.color = Math.random() > 0.3 ? '#4672a8' : '#e8c559';
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        for (let i = 0; i < particleCount; i++) {
+            particles.push(new Particle());
+        }
+
+        function connectParticles() {
+            for (let a = 0; a < particles.length; a++) {
+                for (let b = a + 1; b < particles.length; b++) {
+                    const dx = particles[a].x - particles[b].x;
+                    const dy = particles[a].y - particles[b].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < 100) {
+                        ctx.beginPath();
+                        ctx.strokeStyle = `rgba(70, 114, 168, ${1 - dist / 100})`;
+                        ctx.lineWidth = 0.6;
+                        ctx.moveTo(particles[a].x, particles[a].y);
+                        ctx.lineTo(particles[b].x, particles[b].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            connectParticles();
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        // --- 2. AUTHENTICATION HANDLER (MEMINIMALISIR 405 METHOD NOT ALLOWED) ---
+        async function executeLogin() {
+            const usernameInput = document.getElementById('username').value;
+            const passwordInput = document.getElementById('password').value;
+            const errorBox = document.getElementById('errorNotification');
+
+            errorBox.style.display = 'none';
+            errorBox.innerText = '';
+
+            // Cobalah kirim JSON ke /auth/login terlebih dahulu
+            try {
+                let response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: usernameInput, password: passwordInput })
+                });
+
+                // Jika /auth/login 404/405, coba format Form Data (OAuth2 Standard)
+                if (response.status === 405 || response.status === 422) {
+                    const formData = new URLSearchParams();
+                    formData.append('username', usernameInput);
+                    formData.append('password', passwordInput);
+
+                    response = await fetch('/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: formData
+                    });
+                }
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    errorBox.innerText = data.detail || 'Login gagal. Periksa kembali username/password.';
+                    errorBox.style.display = 'block';
+                } else {
+                    localStorage.setItem('access_token', data.access_token);
+                    if (data.user) {
+                        localStorage.setItem('user_info', JSON.stringify(data.user));
+                    }
+                    window.location.href = '/dashboard';
+                }
+            } catch (err) {
+                errorBox.innerText = 'Gagal terhubung ke server backend.';
+                errorBox.style.display = 'block';
+            }
+        }
+
+        document.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') executeLogin();
+        });
+    </script>
+</body>
+</html>
