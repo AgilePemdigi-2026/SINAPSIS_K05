@@ -8,7 +8,7 @@ Antarmuka web SINAPSIS. Pada Sprint 1 berisi **Dashboard Pemantauan Lalu Lintas 
 | File | Fungsi |
 |---|---|
 | `dashboard.html` | Kerangka halaman dan penanda elemen |
-| `dashboard.css` | Gaya (tema merah SINAPSIS, tabel, diagram) |
+| `dashboard.css` | Gaya (tema biru-emas SINAPSIS, tabel, diagram) |
 | `dashboard.js` | Memanggil API, menggambar diagram SVG, daftar status, prediksi, telemetri |
 
 ## Menjalankan
@@ -59,7 +59,7 @@ Tiap `jalur[]`: `arah` (Utara, Selatan, Timur, Barat), `jumlah_kendaraan`, `dens
 
 ## Aturan tampilan
 
-- Tema merah SINAPSIS hanya pada bilah atas dan keadaan kritis; selebihnya netral supaya data yang menonjol.
+- Tema biru tua (navy) dan emas SINAPSIS pada bilah atas, tombol, dan aksen; merah hanya untuk keadaan kritis dan lampu merah; selebihnya netral supaya data yang menonjol.
 - Satu elemen dominan per layar (di dashboard: diagram persimpangan).
 - Huruf biasa (sentence case) dan font sistem; tanpa huruf kapital berspasi atau font monospace untuk teks.
 - Hijau dipakai hanya untuk arti harfiah (lampu hijau, status Lancar, aksi positif).
