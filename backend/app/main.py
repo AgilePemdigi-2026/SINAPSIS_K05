@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app import models  # noqa: F401  (daftarkan tabel ke Base)
 from app.core.config import settings
 from app.core.database import Base, SessionLocal, engine, get_db
-from app.routers import admin, auth, emergency, monitoring, prediction
+from app.routers import admin, auth, emergency, monitoring, prediction, vision
 from app.services import monitoring_service as svc
 from app.services.seed import seed
 
@@ -39,7 +39,7 @@ app.add_middleware(
     allow_origins=["http://localhost:3000", "http://localhost:5173"],
     allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
-for r in (auth.router, monitoring.router, prediction.router, admin.router, emergency.router):
+for r in (auth.router, monitoring.router, prediction.router, admin.router, emergency.router, vision.router):
     app.include_router(r)
 
 

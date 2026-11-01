@@ -1,11 +1,53 @@
-"""Entity (tabel) SINAPSIS — mengikuti CDM/PDM pada Data Mockup & Laporan (Bab VI)."""
-from datetime import datetime
+"""Entity SQLAlchemy dan model telemetry InfluxDB SINAPSIS."""
+from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.timeutil import utcnow
+
+
+@dataclass(frozen=True, slots=True)
+class Telemetry:
+    """Satu titik telemetry kendaraan dan aktivitas neuron untuk InfluxDB.
+
+    ``lane_name`` menjadi tag, sedangkan nilai numerik menjadi fields dalam
+    line protocol. Class ini tidak membuat tabel SQLAlchemy.
+    """
+
+    timestamp: datetime
+    lane_name: str
+    vehicle_count: int
+    membrane_potential: float
+    spike: bool
+    threshold: float
+    measurement: str = "sinapsis_telemetry"
+
+    def to_line_protocol(self) -> str:
+        """Serialize telemetry ke InfluxDB line protocol."""
+        timestamp = self.timestamp
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        timestamp_ns = int(timestamp.timestamp() * 1_000_000_000)
+        lane = self._escape_tag(self.lane_name)
+        measurement = self._escape_measurement(self.measurement)
+        return (
+            f"{measurement},lane_name={lane} "
+            f"vehicle_count={self.vehicle_count}i,"
+            f"membrane_potential={self.membrane_potential},"
+            f"spike={int(self.spike)}i,threshold={self.threshold} "
+            f"{timestamp_ns}"
+        )
+
+    @staticmethod
+    def _escape_tag(value: str) -> str:
+        return str(value).replace("\\", "\\\\").replace(" ", "\\ ").replace(",", "\\,").replace("=", "\\=")
+
+    @staticmethod
+    def _escape_measurement(value: str) -> str:
+        return str(value).replace("\\", "\\\\").replace(" ", "\\ ").replace(",", "\\,")
 
 
 class Pengguna(Base):
