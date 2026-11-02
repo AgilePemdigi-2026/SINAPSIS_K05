@@ -4,11 +4,10 @@ Jalankan dari root repository dengan:
     python backend/tests/test_yolo_standalone.py
 
 Skrip ini membutuhkan ``ultralytics`` dan bobot ``yolov8n.pt``. Jika bobot
-belum ada, Ultralytics akan mengunduhnya saat ``load_model`` dipanggil.
+belum ada, Ultralytics akan mengunduhnya saat service dibuat.
 """
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -20,59 +19,83 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from app.services.yolo_service import VEHICLE_CLASSES, load_model
+from app.services.yolo_service import YoloVehicleService
 
 
 def main() -> None:
-    """Load YOLOv8, detect vehicles in utara.jpg, and print the result."""
-    image_path = (Path(__file__).resolve().parent / "pictures" / "utara.jpg").resolve()
-    frame = cv2.imread(str(image_path))
-    if frame is None:
-        print(f"ERROR: gambar tidak dapat dibaca atau tidak ditemukan: {image_path}")
-        return
+    """Run vehicle detection for every camera image in the pictures folder."""
+    tests_dir = Path(__file__).resolve().parent
+    pictures_dir = tests_dir / "pictures"
+    result_dir = tests_dir / "result_test"
+    result_dir.mkdir(parents=True, exist_ok=True)
 
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    lane_names = ("Utara", "Selatan", "Timur", "Barat")
+    lane_by_stem = {lane.casefold(): lane for lane in lane_names}
+    image_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+    image_paths = sorted(
+        path
+        for path in pictures_dir.iterdir()
+        if path.is_file() and path.suffix.casefold() in image_extensions
+    )
+    if not image_paths:
+        raise FileNotFoundError(f"Tidak ada file gambar di folder: {pictures_dir}")
 
-    print("Loading YOLOv8 model: yolov8n.pt")
-    model = load_model("yolov8n.pt")
+    confidence = 0.15
+    service = YoloVehicleService(confidence=confidence)
+    print(f"Confidence threshold: {confidence}")
+    combined_counts = {lane: 0 for lane in lane_names}
+    intersection_total = 0
 
-    confidence = 0.25
-    raw_result = model.predict(source=frame_rgb, conf=confidence, imgsz=640, verbose=False)[0]
-    print(f"Raw YOLO detections: {len(raw_result.boxes)}")
+    for image_path in image_paths:
+        lane = lane_by_stem.get(image_path.stem.casefold())
+        if lane is None:
+            raise ValueError(
+                f"Nama file harus sesuai lajur {lane_names}: {image_path.name}"
+            )
 
-    detections = []
-    vehicle_count = 0
-    names = raw_result.names
-    print("Detected objects:")
-    for box in raw_result.boxes:
-        class_id = int(box.cls[0])
-        label = names[class_id]
-        confidence_value = float(box.conf[0])
-        print(f"- {label}: confidence={confidence_value:.4f}")
+        frame = cv2.imread(str(image_path))
+        if frame is None:
+            raise OSError(f"Gambar tidak dapat dibaca: {image_path}")
 
-        if label not in VEHICLE_CLASSES:
-            continue
-        vehicle_count += 1
-        x1, y1, x2, y2 = (float(value) for value in box.xyxy[0])
-        detections.append({
-            "class_name": label,
-            "confidence": round(confidence_value, 4),
-            "bbox": {"x1": x1, "y1": y1, "x2": x2, "y2": y2},
-        })
+        result = service.detect(frame)
+        detected_count = result["total"]
+        intersection_total += detected_count
+        combined_counts[lane] += detected_count
 
-    object_classes = [
-        names[int(box.cls[0])]
-        for box in raw_result.boxes
-    ]
-    print(f"Total kendaraan terdeteksi: {vehicle_count}")
-    print(f"Kelas objek terdeteksi: {object_classes}")
+        print(f"{image_path.name} ({lane}): {detected_count} kendaraan")
+        for index, detection in enumerate(result["detections"], start=1):
+            print(
+                f"- {index}. {detection['class_name']} "
+                f"(confidence={detection['confidence']:.4f})"
+            )
 
-    print(json.dumps({
-        "image": str(image_path),
-        "total": vehicle_count,
-        "counts": {"all": vehicle_count},
-        "detections": detections,
-    }, indent=2, ensure_ascii=False))
+        annotated_frame = frame.copy()
+        box_color = (0, 255, 0)
+        for detection in result["detections"]:
+            bbox = detection["bbox"]
+            x1, y1 = int(round(bbox["x1"])), int(round(bbox["y1"]))
+            x2, y2 = int(round(bbox["x2"])), int(round(bbox["y2"]))
+            label = f"{detection['class_name']} {detection['confidence']:.2f}"
+            cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), box_color, 2)
+            cv2.putText(
+                annotated_frame,
+                label,
+                (x1, max(y1 - 10, 20)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                box_color,
+                2,
+                cv2.LINE_AA,
+            )
+
+        output_path = result_dir / f"{lane}_detected.jpg"
+        if not cv2.imwrite(str(output_path), annotated_frame):
+            raise OSError(f"Gambar hasil deteksi gagal disimpan: {output_path}")
+        print(f"  Hasil visualisasi disimpan: {output_path.resolve()}")
+
+    print("\nRingkasan total kendaraan persimpangan:")
+    print(f"Total kendaraan: {intersection_total}")
+    print(f"Rincian per lajur: {combined_counts}")
 
 
 if __name__ == "__main__":
