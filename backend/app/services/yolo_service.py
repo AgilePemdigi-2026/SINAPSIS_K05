@@ -73,7 +73,7 @@ class YoloVehicleService:
         self,
         weights: str | Path = "yolov8n.pt",
         model: Any | None = None,
-        confidence: float = 0.25,
+        confidence: float = 0.15,
         lane_mapper: LaneMapper = quadrant_lane,
     ) -> None:
         if not 0 <= confidence <= 1:
@@ -113,6 +113,39 @@ class YoloVehicleService:
             })
 
         return {"total": len(detections), "counts": counts, "detections": detections}
+
+    @staticmethod
+    def draw_detections(
+        frame: np.ndarray,
+        result: DetectionResult,
+    ) -> np.ndarray:
+        """Draw detection boxes and labels on a copy of an OpenCV BGR frame."""
+        try:
+            import cv2
+        except ImportError as error:  # pragma: no cover - depends on environment
+            raise RuntimeError(
+                "Visualisasi deteksi membutuhkan paket 'opencv-python-headless'."
+            ) from error
+
+        annotated_frame = frame.copy()
+        color = (0, 255, 0)
+        for detection in result["detections"]:
+            bbox = detection["bbox"]
+            x1, y1 = int(round(bbox["x1"])), int(round(bbox["y1"]))
+            x2, y2 = int(round(bbox["x2"])), int(round(bbox["y2"]))
+            label = f"{detection['class_name']} {detection['confidence']:.2f}"
+            cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
+            cv2.putText(
+                annotated_frame,
+                label,
+                (x1, max(y1 - 10, 20)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                color,
+                2,
+                cv2.LINE_AA,
+            )
+        return annotated_frame
 
     @staticmethod
     def _class_names(result: Any) -> dict[int, str]:

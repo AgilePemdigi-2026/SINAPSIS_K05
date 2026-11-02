@@ -16,7 +16,7 @@ dependensi YOLO pada saat startup.
 
 - **Model default:** `yolov8n.pt`
 - **Pemuat model:** `load_model(weights="yolov8n.pt")`
-- **Confidence threshold default:** `0.25`
+- **Confidence threshold default:** `0.15`
 - **Rentang threshold yang valid:** `0.0` hingga `1.0`, inklusif
 - **Prediksi:** `model.predict(source=frame, conf=self.confidence, verbose=False)`
 
@@ -108,6 +108,14 @@ Contoh:
 
 `counts` selalu diinisialisasi untuk seluruh jalur, termasuk jalur dengan
 jumlah nol. `total` sama dengan panjang `detections`.
+
+## Visualisasi deteksi
+
+`YoloVehicleService.draw_detections(frame, result)` membuat salinan frame BGR
+dan menggambar setiap bounding box menggunakan `cv2.rectangle`. Label pada
+setiap kotak menggunakan format `<class_name> <confidence>` dan dirender
+dengan `cv2.putText`. Helper mengembalikan frame teranotasi tanpa mengubah
+frame asli.
 
 ## Perbaikan kompatibilitas tensor skalar
 

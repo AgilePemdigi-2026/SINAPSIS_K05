@@ -24,15 +24,22 @@ Mendeteksi kendaraan dari satu frame gambar.
 - **Content-Type:** `multipart/form-data`
 - **Field:** `frame`
 - **Tipe:** `UploadFile`
+- **Field opsional:** `lane` (`str`), salah satu dari `Utara`, `Selatan`,
+  `Timur`, atau `Barat`
 - **Format yang disarankan:** JPEG atau PNG
 - **Validasi:** `content_type` harus diawali `image/`; bytes gambar harus dapat
   didekode oleh OpenCV sebagai frame BGR.
+
+Jika `lane` diisi, seluruh deteksi dari frame dipetakan 100% ke lajur tersebut.
+Jika tidak diisi, service menggunakan pemetaan kuadran bawaan berdasarkan
+posisi bounding box.
 
 Contoh permintaan:
 
 ```bash
 curl -X POST http://localhost:8000/api/vision/detect \
-  -F "frame=@frame.jpg"
+  -F "frame=@frame.jpg" \
+  -F "lane=Utara"
 ```
 
 #### Respons berhasil
@@ -86,6 +93,16 @@ Memproses frame gambar secara berulang melalui koneksi WebSocket.
 
 Koneksi ditutup tanpa respons tambahan ketika klien melakukan disconnect.
 
+### `POST /api/vision/detect-image`
+
+Mendeteksi kendaraan dan mengembalikan gambar JPEG yang telah diberi
+bounding box serta label class-confidence. Input menggunakan multipart dengan
+field `frame` dan field `lane` opsional. Jika `lane` diisi, semua deteksi
+dipetakan ke lajur tersebut; jika tidak, pemetaan kuadran bawaan digunakan.
+
+Endpoint ini mengembalikan `Content-Type: image/jpeg`, sehingga hasilnya dapat
+dibuka langsung sebagai gambar dari browser atau Swagger UI.
+
 ## Integrasi dengan `yolo_service.py`
 
 Router memanggil:
@@ -114,3 +131,41 @@ JSON. Detail model, threshold, lane mapper, dan TypedDict tersedia di
 Pada endpoint WebSocket, error frame dikirim sebagai JSON `error` agar koneksi
 tetap dapat digunakan bila kesalahan bersifat lokal pada frame. Error runtime
 service dianggap fatal untuk sesi tersebut dan koneksi ditutup.
+
+## `POST /api/vision/detect-intersection`
+
+Memproses beberapa gambar kamera persimpangan dalam satu request. Endpoint
+menyediakan empat field upload opsional yang eksplisit:
+
+- `frame_utara`: gambar kamera lajur `Utara`
+- `frame_selatan`: gambar kamera lajur `Selatan`
+- `frame_timur`: gambar kamera lajur `Timur`
+- `frame_barat`: gambar kamera lajur `Barat`
+
+Setiap file menggunakan lane mapper konstan sesuai nama field-nya, sehingga
+seluruh deteksi dari kamera tersebut dihitung ke lajur yang sesuai. Minimal
+satu frame harus dikirim.
+
+Respons menggabungkan hasil seluruh frame:
+
+```json
+{
+  "total": 0,
+  "counts": {
+    "Utara": 0,
+    "Selatan": 0,
+    "Timur": 0,
+    "Barat": 0
+  },
+  "detections": [],
+  "visualizations": {
+    "Utara": "data:image/jpeg;base64,...",
+    "Selatan": "data:image/jpeg;base64,..."
+  }
+}
+```
+
+`detections` berisi detail kendaraan dari semua frame, sedangkan `total` dan
+`counts` adalah akumulasi lintas kamera. `visualizations` berisi Data URL
+Base64 JPEG untuk setiap lajur yang frame-nya dikirim; nilai dapat langsung
+digunakan sebagai sumber gambar pada browser.
