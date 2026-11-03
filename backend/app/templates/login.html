@@ -475,21 +475,21 @@
             errorBox.style.display = 'none';
             errorBox.innerText = '';
 
-            // Cobalah kirim JSON ke /auth/login terlebih dahulu
+            // Cobalah kirim JSON ke /api/auth/login terlebih dahulu
             try {
-                let response = await fetch('/auth/login', {
+                let response = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username: usernameInput, password: passwordInput })
                 });
 
-                // Jika /auth/login 404/405, coba format Form Data (OAuth2 Standard)
+                // Jika /api/auth/login 404/405, coba format Form Data (OAuth2 Standard)
                 if (response.status === 405 || response.status === 422) {
                     const formData = new URLSearchParams();
                     formData.append('username', usernameInput);
                     formData.append('password', passwordInput);
 
-                    response = await fetch('/auth/login', {
+                    response = await fetch('/api/auth/login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: formData
