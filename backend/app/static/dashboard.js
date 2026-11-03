@@ -59,11 +59,16 @@
   function densityWord(pct) { return pct >= KRITIS_PCT ? 'Kritis' : (pct >= PADAT_PCT ? 'Padat' : 'Lancar'); }
 
   /* ---------- jaringan ---------- */
-  function request(url, opts) {
+    function request(url, opts) {
     var t0 = performance.now();
+    opts = opts || {};
+    var tk = null;
+    try { tk = localStorage.getItem('access_token'); } catch (e) { /* storage diblokir */ }
+    if (tk) { opts.headers = Object.assign({}, opts.headers, { Authorization: 'Bearer ' + tk }); }
     return fetch(url, opts).then(function (res) {
       var ms = Math.round(performance.now() - t0);
-      if (!res.ok) {
+      if (res.status === 401) { window.location.href = '/login'; }   // mode terkunci: wajib login
+      if (!res.ok) { 
         return res.json().catch(function () { return {}; }).then(function (b) {
           throw new Error(b.detail || ('HTTP ' + res.status));
         });
