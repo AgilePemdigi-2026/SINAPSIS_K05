@@ -22,7 +22,7 @@
             position: relative;
         }
 
-        /* --- LOGO KEMENHUB DISHUB DI POJOK KANAN ATAS LAYAR --- */
+        /* LOGO KEMENHUB DISHUB POJOK KANAN ATAS */
         .page-top-right-logos {
             position: fixed;
             top: 24px;
@@ -53,7 +53,7 @@
             background-color: #cbd5e1;
         }
 
-        /* --- BACKGROUND MOVING BLOBS --- */
+        /* BACKGROUND BLOBS */
         .bg-blobs {
             position: absolute;
             width: 100%;
@@ -106,28 +106,27 @@
             100% { transform: translate(-50px, 50px) scale(0.95); }
         }
 
-        /* --- GLASSMORPHISM MAIN CONTAINER --- */
+        /* MAIN GLASS CARD */
         .glass-card {
             position: relative;
             z-index: 2;
             width: 90%;
             max-width: 940px;
-            height: 560px;
+            min-height: 560px;
             background: rgba(255, 255, 255, 0.7);
             backdrop-filter: blur(24px);
             -webkit-backdrop-filter: blur(24px);
             border: 1px solid rgba(255, 255, 255, 0.85);
             border-radius: 24px;
-            box-shadow: 0 20px 50px rgba(11, 9, 59, 0.1), 
-                        0 1px 3px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 20px 50px rgba(11, 9, 59, 0.1), 0 1px 3px rgba(0, 0, 0, 0.05);
             display: flex;
             overflow: hidden;
         }
 
-        /* --- LEFT SIDE: FORM LOGIN --- */
+        /* FORM SECTION (LEFT) */
         .form-section {
             flex: 1;
-            padding: 50px 48px;
+            padding: 44px 44px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -137,7 +136,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
         }
 
         .logo-icon {
@@ -157,45 +156,45 @@
         }
 
         .form-section h2 {
-            font-size: 28px;
+            font-size: 26px;
             font-weight: 800;
             color: #0b093b;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
 
         .form-section p.subtitle {
             font-size: 13px;
             color: #4672a8;
-            margin-bottom: 30px;
+            margin-bottom: 22px;
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 14px;
         }
 
         .form-group label {
             display: block;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             color: #0b093b;
-            margin-bottom: 6px;
+            margin-bottom: 5px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
-        .form-group input {
+        .form-group input, .form-group select {
             width: 100%;
-            padding: 12px 16px;
+            padding: 11px 14px;
             background: rgba(255, 255, 255, 0.85);
             border: 1.5px solid #cbd5e1;
             border-radius: 10px;
-            font-size: 14px;
+            font-size: 13px;
             color: #0b093b;
             outline: none;
             transition: all 0.2s ease;
         }
 
-        .form-group input:focus {
+        .form-group input:focus, .form-group select:focus {
             background: #ffffff;
             border-color: #152c70;
             box-shadow: 0 0 0 3px rgba(21, 44, 112, 0.15);
@@ -203,7 +202,7 @@
 
         .btn-submit {
             width: 100%;
-            padding: 13px;
+            padding: 12px;
             background-color: #0b093b;
             color: #ffffff;
             border: none;
@@ -212,7 +211,7 @@
             font-weight: 700;
             cursor: pointer;
             transition: all 0.25s ease;
-            margin-top: 10px;
+            margin-top: 6px;
             box-shadow: 0 4px 15px rgba(11, 9, 59, 0.25);
         }
 
@@ -222,6 +221,27 @@
             box-shadow: 0 6px 18px rgba(21, 44, 112, 0.35);
         }
 
+        /* BOTTOM LINKS SWITCHER */
+        .auth-links-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 14px;
+            font-size: 12px;
+        }
+
+        .auth-links-row a {
+            color: #152c70;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .auth-links-row a:hover {
+            color: #4672a8;
+            text-decoration: underline;
+        }
+
         .alert-box {
             background-color: #fef2f2;
             border-left: 4px solid #ef4444;
@@ -229,13 +249,19 @@
             padding: 10px 12px;
             border-radius: 6px;
             font-size: 12px;
-            margin-top: 16px;
+            margin-top: 14px;
             display: none;
             text-align: center;
             font-weight: 600;
         }
 
-        /* --- RIGHT SIDE: HIGH-TECH AI NEURAL ART --- */
+        .alert-box.success {
+            background-color: #f0fdf4;
+            border-left-color: #22c55e;
+            color: #15803d;
+        }
+
+        /* ART SECTION (RIGHT) */
         .art-section {
             flex: 1.15;
             position: relative;
@@ -330,55 +356,123 @@
 </head>
 <body>
 
-    <!-- LOGO KEMENHUB DISHUB DI POJOK KANAN ATAS LAYAR -->
     <div class="page-top-right-logos">
         <img src="/static/images/logo_kemenhub.png" alt="Logo Kemenhub">
         <div class="divider"></div>
         <img src="/static/images/lambang_dishub.png" alt="Lambang Dishub">
     </div>
 
-    <!-- BACKGROUND BLOBS GERAK -->
     <div class="bg-blobs">
         <div class="blob blob-1"></div>
         <div class="blob blob-2"></div>
         <div class="blob blob-3"></div>
     </div>
 
-    <!-- MAIN GLASSMORPHISM CONTAINER -->
     <div class="glass-card">
         
-        <!-- LEFT: FORM SECTION -->
         <div class="form-section">
             <div class="brand-logo">
                 <div class="logo-icon"></div>
                 <span>SINAPSIS DISHUB</span>
             </div>
 
-            <h2>Sign In</h2>
-            <p class="subtitle">Masuk ke sistem pemantauan lalu lintas</p>
+            <!-- VIEW 1: LOGIN -->
+            <div id="viewLogin">
+                <h2>Sign In</h2>
+                <p class="subtitle">Masuk ke sistem pemantauan lalu lintas</p>
 
-            <div class="form-group">
-                <label for="username">Username</label>
-                <input type="text" id="username" placeholder="Masukkan username" autocomplete="off">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="Masukkan username" autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Masukkan password">
+                </div>
+
+                <button class="btn-submit" onclick="executeLogin()">Masuk Ke Sistem</button>
+
+                <div class="auth-links-row">
+                    <a onclick="switchView('viewRegister')">Daftar Akun Baru</a>
+                    <a onclick="switchView('viewForgot')">Lupa Password?</a>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" placeholder="Masukkan password">
+            <!-- VIEW 2: REGISTRASI -->
+            <div id="viewRegister" style="display: none;">
+                <h2>Registrasi</h2>
+                <p class="subtitle">Daftarkan akun petugas/admin baru</p>
+
+                <div class="form-group">
+                    <label for="regFullName">Nama Lengkap</label>
+                    <input type="text" id="regFullName" placeholder="Contoh: Ezi Fahrezi">
+                </div>
+
+                <div class="form-group">
+                    <label for="regUsername">Username</label>
+                    <input type="text" id="regUsername" placeholder="Username unik">
+                </div>
+
+                <div class="form-group">
+                    <label for="regPassword">Password</label>
+                    <input type="password" id="regPassword" placeholder="Minimal 6 karakter">
+                </div>
+
+                <div class="form-group">
+                    <label for="regRole">Role Akses</label>
+                    <select id="regRole">
+                        <option value="petugas">Petugas Lalu Lintas</option>
+                        <option value="admin">Administrator</option>
+                    </select>
+                </div>
+
+                <button class="btn-submit" onclick="executeRegister()">Daftarkan Akun</button>
+
+                <div class="auth-links-row" style="justify-content: center;">
+                    <a onclick="switchView('viewLogin')">← Kembali ke Sign In</a>
+                </div>
             </div>
 
-            <button class="btn-submit" onclick="executeLogin()">Masuk Ke Sistem</button>
+            <!-- VIEW 3: LUPA PASSWORD -->
+            <div id="viewForgot" style="display: none;">
+                <h2>Lupa Password</h2>
+                <p class="subtitle">Reset password akun Anda</p>
 
-            <div id="errorNotification" class="alert-box"></div>
+                <!-- Step A: Request Token -->
+                <div id="stepReqToken">
+                    <div class="form-group">
+                        <label for="forgotUsername">Username Akun</label>
+                        <input type="text" id="forgotUsername" placeholder="Masukkan username Anda">
+                    </div>
+                    <button class="btn-submit" onclick="executeRequestToken()">Minta Token Reset</button>
+                </div>
+
+                <!-- Step B: Reset Password -->
+                <div id="stepSetNewPassword" style="display: none;">
+                    <div class="form-group">
+                        <label for="resetToken">Token Reset (15 Menit Expiry)</label>
+                        <input type="text" id="resetToken" placeholder="Token terisi otomatis">
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">Password Baru</label>
+                        <input type="password" id="newPassword" placeholder="Password baru">
+                    </div>
+                    <button class="btn-submit" onclick="executeResetPassword()">Simpan Password Baru</button>
+                </div>
+
+                <div class="auth-links-row" style="justify-content: center;">
+                    <a onclick="switchView('viewLogin')">← Kembali ke Sign In</a>
+                </div>
+            </div>
+
+            <div id="globalNotification" class="alert-box"></div>
         </div>
 
-        <!-- RIGHT: NEURAL AI ART SECTION -->
         <div class="art-section">
             <canvas id="neuralCanvas"></canvas>
-            
             <div class="ai-ring ai-ring-1"></div>
             <div class="ai-ring ai-ring-2"></div>
-
             <div class="art-overlay">
                 <span class="badge">AI NEUROMORPHIC</span>
                 <h3>SINAPSIS</h3>
@@ -389,7 +483,7 @@
     </div>
 
     <script>
-        // --- 1. NEURAL NETWORK CANVAS ANIMATION ---
+        // ANIMASI NEURAL CANVAS
         const canvas = document.getElementById('neuralCanvas');
         const ctx = canvas.getContext('2d');
 
@@ -412,15 +506,12 @@
                 this.radius = Math.random() * 2 + 1;
                 this.color = Math.random() > 0.3 ? '#4672a8' : '#e8c559';
             }
-
             update() {
                 this.x += this.vx;
                 this.y += this.vy;
-
                 if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
                 if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
             }
-
             draw() {
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
@@ -457,25 +548,38 @@
 
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            particles.forEach(p => {
-                p.update();
-                p.draw();
-            });
+            particles.forEach(p => { p.update(); p.draw(); });
             connectParticles();
             requestAnimationFrame(animate);
         }
         animate();
 
-        // --- 2. AUTHENTICATION HANDLER (MEMINIMALISIR 405 METHOD NOT ALLOWED) ---
+        // SWITCHER TAMPILAN VIEW
+        function switchView(viewId) {
+            document.getElementById('viewLogin').style.display = 'none';
+            document.getElementById('viewRegister').style.display = 'none';
+            document.getElementById('viewForgot').style.display = 'none';
+            
+            const notif = document.getElementById('globalNotification');
+            notif.style.display = 'none';
+
+            document.getElementById(viewId).style.display = 'block';
+        }
+
+        function showNotif(msg, isSuccess = false) {
+            const notif = document.getElementById('globalNotification');
+            notif.className = isSuccess ? 'alert-box success' : 'alert-box';
+            notif.innerText = msg;
+            notif.style.display = 'block';
+        }
+
+        // 1. EXECUTE LOGIN
         async function executeLogin() {
             const usernameInput = document.getElementById('username').value;
             const passwordInput = document.getElementById('password').value;
-            const errorBox = document.getElementById('errorNotification');
+            showNotif('', false);
+            document.getElementById('globalNotification').style.display = 'none';
 
-            errorBox.style.display = 'none';
-            errorBox.innerText = '';
-
-            // Cobalah kirim JSON ke /api/auth/login terlebih dahulu
             try {
                 let response = await fetch('/api/auth/login', {
                     method: 'POST',
@@ -483,7 +587,6 @@
                     body: JSON.stringify({ username: usernameInput, password: passwordInput })
                 });
 
-                // Jika /api/auth/login 404/405, coba format Form Data (OAuth2 Standard)
                 if (response.status === 405 || response.status === 422) {
                     const formData = new URLSearchParams();
                     formData.append('username', usernameInput);
@@ -499,8 +602,7 @@
                 const data = await response.json();
 
                 if (!response.ok) {
-                    errorBox.innerText = data.detail || 'Login gagal. Periksa kembali username/password.';
-                    errorBox.style.display = 'block';
+                    showNotif(data.detail || 'Login gagal. Periksa kembali username/password.');
                 } else {
                     localStorage.setItem('access_token', data.access_token);
                     if (data.user) {
@@ -509,13 +611,108 @@
                     window.location.href = '/dashboard';
                 }
             } catch (err) {
-                errorBox.innerText = 'Gagal terhubung ke server backend.';
-                errorBox.style.display = 'block';
+                showNotif('Gagal terhubung ke server backend.');
+            }
+        }
+
+        // 2. EXECUTE REGISTER
+        async function executeRegister() {
+            const fullName = document.getElementById('regFullName').value;
+            const username = document.getElementById('regUsername').value;
+            const password = document.getElementById('regPassword').value;
+            const role = document.getElementById('regRole').value;
+
+            if (!fullName || !username || !password) {
+                showNotif('Semua field wajib diisi!');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ full_name: fullName, username: username, password: password, role: role })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showNotif(data.message || 'Registrasi berhasil! Silakan Sign In.', true);
+                    setTimeout(() => switchView('viewLogin'), 2000);
+                } else {
+                    showNotif(data.detail || 'Registrasi gagal.');
+                }
+            } catch (err) {
+                showNotif('Gagal terhubung ke server backend.');
+            }
+        }
+
+        // 3. EXECUTE REQUEST TOKEN LUPA PASSWORD
+        async function executeRequestToken() {
+            const username = document.getElementById('forgotUsername').value;
+
+            if (!username) {
+                showNotif('Masukkan username Anda!');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showNotif('Token diterbitkan! Silakan buat password baru.', true);
+                    document.getElementById('resetToken').value = data.reset_token;
+                    document.getElementById('stepReqToken').style.display = 'none';
+                    document.getElementById('stepSetNewPassword').style.display = 'block';
+                } else {
+                    showNotif(data.detail || 'Username tidak ditemukan.');
+                }
+            } catch (err) {
+                showNotif('Gagal terhubung ke server backend.');
+            }
+        }
+
+        // 4. EXECUTE RESET PASSWORD BARU
+        async function executeResetPassword() {
+            const resetToken = document.getElementById('resetToken').value;
+            const newPassword = document.getElementById('newPassword').value;
+
+            if (!resetToken || !newPassword) {
+                showNotif('Token dan Password Baru wajib diisi!');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reset_token: resetToken, new_password: newPassword })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showNotif(data.message || 'Password berhasil diperbarui!', true);
+                    setTimeout(() => switchView('viewLogin'), 2000);
+                } else {
+                    showNotif(data.detail || 'Reset password gagal.');
+                }
+            } catch (err) {
+                showNotif('Gagal terhubung ke server backend.');
             }
         }
 
         document.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') executeLogin();
+            if (e.key === 'Enter') {
+                if (document.getElementById('viewLogin').style.display !== 'none') executeLogin();
+                else if (document.getElementById('viewRegister').style.display !== 'none') executeRegister();
+            }
         });
     </script>
 </body>
