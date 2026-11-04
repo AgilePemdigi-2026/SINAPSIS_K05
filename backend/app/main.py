@@ -1,23 +1,38 @@
 """Titik masuk aplikasi SINAPSIS API.
 
-Jalankan: PYTHONPATH=backend python -m uvicorn backend.app.main:app --reload
+Jalankan (dari folder backend): PYTHONPATH=. python -m uvicorn app.main:app --reload
 """
 import asyncio
-import traceback
+import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+# Import Router Auth System Baru (Fitur Register, Forgot, Reset)
+from app.auth_system import router as auth_system_router
+
 # Setup Path Absolut
 CURRENT_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = CURRENT_DIR / "templates"
-FRONTEND_DIR = CURRENT_DIR.parents[1] / "frontend"
+STATIC_DIR = CURRENT_DIR / "static"
 
+logger = logging.getLogger("sinapsis")
+
+
+def _find_frontend_dir():
+    """Folder frontend opsional (bisa diganti lewat env FRONTEND_DIR). None bila tidak ada."""
+    env = os.getenv("FRONTEND_DIR")
+    candidate = Path(env) if env else CURRENT_DIR.parents[1] / "frontend"
+    return candidate if candidate.is_dir() else None
+
+
+FRONTEND_DIR = _find_frontend_dir()
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
@@ -35,6 +50,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# Inisialisasi Utama Aplikasi FastAPI (Cukup 1 kali saja)
 app = FastAPI(
     title="SINAPSIS API",
     version="1.0.0",
@@ -42,17 +58,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Global Error Handler: Mengubah error 500 menjadi pesan JSON rapi untuk memperjelas penyebab
+
+# Global Error Handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=500,
-        content={
-            "detail": "Internal Server Error Handled",
-            "error_message": str(exc),
-            "traceback": traceback.format_exc(),
-        },
-    )
+    logger.exception("Unhandled error pada %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Terjadi kesalahan pada server."})
+
 
 # Middleware CORS
 app.add_middleware(
@@ -64,22 +76,22 @@ app.add_middleware(
 )
 
 # Mounting folder Static Assets
-STATIC_DIR = CURRENT_DIR / "static"
 if not STATIC_DIR.exists():
     STATIC_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-if FRONTEND_DIR.exists():
+if FRONTEND_DIR is not None:
     app.mount("/frontend", StaticFiles(directory=str(FRONTEND_DIR)), name="frontend")
 
 
-# Import & Register Routers dengan Penanganan Aman
-try:
-    from app.routers import admin, auth, emergency, monitoring, prediction
-    for r in (auth.router, monitoring.router, prediction.router, admin.router, emergency.router):
-        app.include_router(r)
-except Exception as e:
-    print(f"Error saat mendaftarkan router: {e}")
+# 1. REGISTER ROUTER AUTH SYSTEM BARU
+app.include_router(auth_system_router)
+
+# 2. REGISTER ROUTER LAINNYA (Monitoring, Prediction, Admin, Emergency)
+from app.routers import admin, emergency, monitoring, prediction  # noqa: E402
+
+for r in (monitoring.router, prediction.router, admin.router, emergency.router):
+    app.include_router(r)
 
 
 # --- ROUTE UI FRONTEND ---
@@ -93,16 +105,15 @@ def render_login_page(request: Request):
 
 @app.get("/dashboard", tags=["UI"])
 def render_dashboard_page():
-    """Menampilkan halaman Dashboard dari folder frontend/dashboard.html."""
-    dashboard_file = FRONTEND_DIR / "dashboard.html"
-    if dashboard_file.exists():
-        return FileResponse(dashboard_file)
-    
-    fallback_file = TEMPLATES_DIR / "dashboard.html"
-    if fallback_file.exists():
-        return FileResponse(fallback_file)
-        
-    return HTMLResponse("<h2>File dashboard.html tidak ditemukan di folder frontend/ maupun templates/</h2>")
+    """Halaman Dashboard."""
+    candidates = []
+    if FRONTEND_DIR is not None:
+        candidates.append(Path(FRONTEND_DIR) / "dashboard.html")
+    candidates.append(TEMPLATES_DIR / "dashboard.html")
+    for f in candidates:
+        if f.exists():
+            return FileResponse(f)
+    raise HTTPException(404, "File dashboard.html tidak ditemukan.")
 
 
 @app.get("/api/info", tags=["Umum"])
@@ -110,21 +121,24 @@ def info():
     return {"app": "SINAPSIS", "status": "online"}
 
 
-# --- WEBSOCKET REALTIME AMAN ---
+# --- WEBSOCKET REALTIME ---
 @app.websocket("/ws/live")
 async def ws_live(ws: WebSocket, token: str = "", interval: float = 3.0):
+    from app.core.database import SessionLocal
+    from app.core.security import ROLE_ADMIN, ROLE_PETUGAS, user_from_token
+    from app.services import monitoring_service as svc
+
+    with SessionLocal() as db:
+        user = user_from_token(token, db) if token else None
+        allowed = user is not None and user.role in (ROLE_ADMIN, ROLE_PETUGAS)
+    if not allowed:
+        await ws.close(code=1008)
+        return
     await ws.accept()
     try:
         while True:
-            await ws.send_json({
-                "status": "online",
-                "total_kendaraan": 128,
-                "kecepatan_rata": 42.5,
-                "status_lalin": "Lancar",
-                "waktu_siklus": 60
-            })
+            with SessionLocal() as db:
+                await ws.send_json(svc.dashboard(db))
             await asyncio.sleep(max(1.0, interval))
     except WebSocketDisconnect:
-        pass
-    except Exception:
         pass
