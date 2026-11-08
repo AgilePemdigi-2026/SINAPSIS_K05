@@ -1,24 +1,27 @@
 /* SINAPSIS: Kelola Sistem / Registrasi Persimpangan (F5, GIS & Mapping).
-   HTML/CSS/JS murni. Peta digambar sebagai kanvas vektor SVG (tanpa tile dan tanpa pustaka luar), sesuai SRS
-   "Map Canvas Vector". Rute halaman: /admin/intersections (daftar + peta) dan /admin/intersections/add (form). */
+   HTML/CSS/JS murni + Leaflet 1.9.4 (disertakan di /static/vendor/leaflet, tanpa CDN). Peta dasar OpenStreetMap
+   dimuat dari internet; bila gagal, titik persimpangan dan pengisian koordinat tetap berfungsi.
+   Rute halaman: /admin/intersections (daftar + peta) dan /admin/intersections/add (form). */
 (function () {
   'use strict';
 
   var API_LIST = '/api/admin/intersections';
   var API_DASH = '/api/monitoring/dashboard';
-  var SVG_NS = 'http://www.w3.org/2000/svg';
+  var API_REFRESH = '/api/monitoring/refresh';
   var MODE = /\/add\/?$/.test(window.location.pathname) ? 'add' : 'list';
   var MSG_OK = 'Persimpangan baru berhasil ditambahkan!';
   var MSG_NAMA = 'Nama lokasi persimpangan wajib diisi!';   // REQ-13
   var DESK_MAX = 250;                                        // SRS 3.1.2
   var POLL_MS = 5000;
   var LANES = ['Utara', 'Selatan', 'Timur', 'Barat'];
-  // Kotak awal peta saat belum ada titik terdaftar (wilayah Surabaya)
-  var DEFAULT_BOX = { latMin: -7.36, latMax: -7.20, lonMin: 112.66, lonMax: 112.84 };
   var ID_BOX = { latMin: -11.5, latMax: 6.5, lonMin: 94.5, lonMax: 141.5 };  // perkiraan wilayah Indonesia
-  var MIN_SPAN = 0.05;                                       // derajat; mencegah peta terlalu zoom
+  var START_VIEW = { lat: -7.2575, lon: 112.7521, zoom: 12 };                // Surabaya, bila belum ada titik terdaftar
+  var TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  var TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+  var LABEL_MIN_ZOOM = 12;                                   // nama persimpangan disembunyikan bila peta terlalu jauh
 
-  var state = { items: [], live: {}, liveAt: null, selected: null, draft: null, freshId: null, timer: null };
+  var state = { items: [], live: {}, liveAt: null, selected: null, draft: null, freshId: null, timer: null, autoRefreshed: false };
+  var gis = { map: null, layer: null, pins: {}, draftPin: null, fitted: false, tileErrors: 0 };
 
   /* ---------- util DOM ---------- */
   function $(id) { return document.getElementById(id); }
@@ -26,12 +29,6 @@
     var n = document.createElement(tag);
     if (cls) n.className = cls;
     if (text !== undefined && text !== null) n.textContent = text;
-    return n;
-  }
-  function svg(tag, attrs, text) {
-    var n = document.createElementNS(SVG_NS, tag);
-    Object.keys(attrs || {}).forEach(function (k) { n.setAttribute(k, attrs[k]); });
-    if (text !== undefined) n.textContent = text;
     return n;
   }
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
@@ -96,164 +93,128 @@
   }
   function hasGeo(it) { return typeof it.latitude === 'number' && typeof it.longitude === 'number'; }
 
-  /* ---------- proyeksi peta ---------- */
-  function boundsOf(points) {
-    var b;
-    if (!points.length) {
-      b = { latMin: DEFAULT_BOX.latMin, latMax: DEFAULT_BOX.latMax, lonMin: DEFAULT_BOX.lonMin, lonMax: DEFAULT_BOX.lonMax };
-    } else {
-      b = { latMin: 90, latMax: -90, lonMin: 180, lonMax: -180 };
-      points.forEach(function (p) {
-        b.latMin = Math.min(b.latMin, p.lat); b.latMax = Math.max(b.latMax, p.lat);
-        b.lonMin = Math.min(b.lonMin, p.lon); b.lonMax = Math.max(b.lonMax, p.lon);
-      });
-      var padLat = Math.max((b.latMax - b.latMin) * 0.25, 0.004), padLon = Math.max((b.lonMax - b.lonMin) * 0.25, 0.004);
-      b.latMin -= padLat; b.latMax += padLat; b.lonMin -= padLon; b.lonMax += padLon;
-    }
-    var cLat = (b.latMin + b.latMax) / 2, cLon = (b.lonMin + b.lonMax) / 2;
-    if (b.latMax - b.latMin < MIN_SPAN) { b.latMin = cLat - MIN_SPAN / 2; b.latMax = cLat + MIN_SPAN / 2; }
-    if (b.lonMax - b.lonMin < MIN_SPAN) { b.lonMin = cLon - MIN_SPAN / 2; b.lonMax = cLon + MIN_SPAN / 2; }
-    return b;
-  }
-
-  function projection(points, W, H) {
-    var b = boundsOf(points), pad = 28;
-    var latMid = (b.latMin + b.latMax) / 2;
-    var kx = 111.32 * Math.cos(latMid * Math.PI / 180), ky = 110.57;          // km per derajat
-    var spanX = (b.lonMax - b.lonMin) * kx, spanY = (b.latMax - b.latMin) * ky;
-    var scale = Math.min((W - 2 * pad) / spanX, (H - 2 * pad) / spanY);        // px per km
-    var offX = (W - spanX * scale) / 2, offY = (H - spanY * scale) / 2;
-    var p = { W: W, H: H, scale: scale };
-    p.x = function (lon) { return offX + (lon - b.lonMin) * kx * scale; };
-    p.y = function (lat) { return offY + (b.latMax - lat) * ky * scale; };
-    p.lon = function (x) { return b.lonMin + (x - offX) / (kx * scale); };
-    p.lat = function (y) { return b.latMax - (y - offY) / (ky * scale); };
-    p.visible = { latMin: p.lat(H), latMax: p.lat(0), lonMin: p.lon(0), lonMax: p.lon(W) };
-    return p;
-  }
-
-  // Proyeksi stabil: dihitung dari titik terdaftar saja; titik draft hanya memperluas bila di luar area terlihat,
-  // sehingga klik pada peta tidak menggeser peta.
-  function buildProjection(W, H) {
-    var pts = state.items.filter(hasGeo).map(function (i) { return { lat: i.latitude, lon: i.longitude }; });
-    var proj = projection(pts, W, H);
-    var d = state.draft;
-    if (d) {
-      // pin menjulang ~44 px di atas titiknya dan labelnya ke samping: beri ruang agar tidak terpotong tepi peta
-      var px = proj.x(d.lon), py = proj.y(d.lat), mx = 48, top = 62, bottom = 24;
-      var inside = px > mx && px < W - mx && py > top && py < H - bottom;
-      if (!inside) proj = projection(pts.concat([d]), W, H);
-    }
-    return proj;
-  }
-
-  function niceStep(range, maxLines) {
-    var steps = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10];
-    for (var i = 0; i < steps.length; i++) { if (range / steps[i] <= maxLines) return steps[i]; }
-    return 10;
-  }
-  function stepDecimals(step) { return step >= 1 ? 0 : (step >= 0.1 ? 1 : (step >= 0.01 ? 2 : 3)); }
-
-  // Faktor pembesaran teks/pin agar tetap terbaca ketika SVG diperkecil (layar ponsel). Minimal 1, maksimal 1,7.
-  function textScale(node, W) {
-    var w = node.getBoundingClientRect().width;
-    return w > 0 ? Math.min(1.7, Math.max(1, W / w * 0.85)) : 1;
-  }
-
-  function drawGrid(root, proj, k) {
-    var v = proj.visible, W = proj.W, H = proj.H;
-    root.appendChild(svg('rect', { 'class': 'land', x: 0, y: 0, width: W, height: H }));
-    var stLat = niceStep(v.latMax - v.latMin, 6), stLon = niceStep(v.lonMax - v.lonMin, 6);
-    var t, y, x;
-    for (t = Math.ceil(v.latMin / stLat) * stLat; t <= v.latMax; t += stLat) {
-      y = proj.y(t);
-      root.appendChild(svg('line', { 'class': 'grat', x1: 0, x2: W, y1: y, y2: y }));
-      root.appendChild(svg('text', { 'class': 'glabel', x: 5, y: y - 3, style: 'font-size:' + (10 * k) + 'px' },
-        dec(t.toFixed(stepDecimals(stLat))) + '°'));
-    }
-    for (t = Math.ceil(v.lonMin / stLon) * stLon; t <= v.lonMax; t += stLon) {
-      x = proj.x(t);
-      root.appendChild(svg('line', { 'class': 'grat', x1: x, x2: x, y1: 0, y2: H }));
-      if (x < W - 44 * k) {      // label yang akan terpotong di tepi kanan dilewati
-        root.appendChild(svg('text', { 'class': 'glabel', x: x + 3, y: H - 6, style: 'font-size:' + (10 * k) + 'px' },
-          dec(t.toFixed(stepDecimals(stLon))) + '°'));
-      }
-    }
-    // penunjuk utara dan skala
-    root.appendChild(svg('path', { d: 'M' + (W - 24) + ',14 l6,16 l-6,-4 l-6,4 z', fill: '#0f0945' }));
-    root.appendChild(svg('text', { 'class': 'compass', x: W - 24, y: 44, style: 'font-size:' + (11 * k) + 'px' }, 'U'));
-    var kms = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20], km = kms[0], i;
-    for (i = 0; i < kms.length; i++) { km = kms[i]; if (km * proj.scale >= 60) break; }
-    var len = km * proj.scale, x0 = W - 20 - len, yb = H - 22;
-    root.appendChild(svg('line', { 'class': 'scale-line', x1: x0, x2: x0 + len, y1: yb, y2: yb }));
-    root.appendChild(svg('line', { 'class': 'scale-line', x1: x0, x2: x0, y1: yb - 4, y2: yb + 4 }));
-    root.appendChild(svg('line', { 'class': 'scale-line', x1: x0 + len, x2: x0 + len, y1: yb - 4, y2: yb + 4 }));
-    root.appendChild(svg('text', { 'class': 'scale-text', x: x0 + len / 2, y: yb - 7, style: 'font-size:' + (10 * k) + 'px' }, dec(km) + ' km'));
-  }
-
+  /* ---------- peta (Leaflet) ---------- */
   var PIN_PATH = 'M0,0 C-2,-6 -10,-12 -10,-20 a10,10 0 1 1 20,0 C10,-12 2,-6 0,0 Z';
 
-  function drawPin(root, proj, cfg) {
-    var x = proj.x(cfg.lon), y = proj.y(cfg.lat);
-    var g = svg('g', { 'class': 'pin ' + cfg.cls + (cfg.selected ? ' selected' : ''),
-      transform: 'translate(' + x + ',' + y + ') scale(' + cfg.k + ')' });
-    if (cfg.pulse) g.appendChild(svg('circle', { 'class': 'pin-pulse', cx: 0, cy: -20, r: 16 }));
-    g.appendChild(svg('path', { 'class': 'pin-body', d: PIN_PATH }));
-    g.appendChild(svg('circle', { 'class': 'pin-dot', cx: 0, cy: -20, r: 3.5 }));
-    if (cfg.label) {
-      var left = cfg.labelLeft || x > proj.W - 170 * cfg.k;
-      g.appendChild(svg('text', { 'class': 'plabel', x: left ? -15 : 15, y: -16, 'text-anchor': left ? 'end' : 'start' }, cfg.label));
-    }
-    if (cfg.onSelect) {
-      g.setAttribute('tabindex', '0');
-      g.setAttribute('role', 'button');
-      g.setAttribute('aria-label', cfg.aria);
-      g.addEventListener('click', function (e) { e.stopPropagation(); cfg.onSelect(); });
-      g.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cfg.onSelect(); }
-      });
-    }
-    if (cfg.title) g.appendChild(svg('title', {}, cfg.title));
-    root.appendChild(g);
+  function pinIcon(cls, selected) {
+    var html = '<svg class="pin ' + cls + (selected ? ' selected' : '') + '" viewBox="-18 -40 36 44" width="36" height="44" aria-hidden="true">' +
+      (cls === 'q-kritis' ? '<circle class="pin-pulse" cx="0" cy="-20" r="16"/>' : '') +
+      '<path class="pin-body" d="' + PIN_PATH + '"/><circle class="pin-dot" cx="0" cy="-20" r="3.5"/></svg>';
+    return L.divIcon({ className: 'pin-icon', html: html, iconSize: [36, 44], iconAnchor: [18, 40], tooltipAnchor: [14, -22] });
   }
 
-  function drawMap(node, opts) {
-    var vb = node.viewBox.baseVal, W = vb.width, H = vb.height;
-    var proj = buildProjection(W, H);
-    node._proj = proj;
-    var k = textScale(node, W);
-    node.style.setProperty('--ts', String(k));
-    clear(node);
-    drawGrid(node, proj, k);
-    var pts = state.items.filter(hasGeo).slice().sort(function (a, b) { return b.latitude - a.latitude; });
-    // Label ditaruh di kiri pin bila di sebelah kanannya ada pin lain yang akan tertimpa teks.
-    function crowdedRight(it) {
-      var x = proj.x(it.longitude), y = proj.y(it.latitude), w = (it.nama_lokasi.length * 6.4 + 22) * k;
-      return pts.some(function (o) {
-        if (o === it) return false;
-        var dx = proj.x(o.longitude) - x, dy = proj.y(o.latitude) - y;
-        return dx > 0 && dx < w && Math.abs(dy) < 24 * k;
-      });
+  function showMapNote(msg) { var n = $(MODE === 'add' ? 'mapNoteAdd' : 'mapNoteList'); if (n) { n.hidden = !msg; n.textContent = msg || ''; } }
+
+  function initMap() {
+    var node = $(MODE === 'add' ? 'mapMini' : 'mapNet');
+    if (!window.L) {
+      showMapNote('Pustaka peta tidak dapat dimuat. Isi koordinat secara manual pada form.');
+      return;
     }
-    pts.forEach(function (it) {
-      var st = statusText(it.id_persimpangan);
-      drawPin(node, proj, {
-        k: k, labelLeft: crowdedRight(it),
-        lat: it.latitude, lon: it.longitude, cls: qClass(st), label: it.nama_lokasi,
-        selected: opts.selectable && state.selected === it.id_persimpangan, pulse: st === 'Kritis',
-        title: it.nama_lokasi + ': ' + st,
-        onSelect: opts.selectable ? function () { select(it.id_persimpangan); } : null,
-        aria: it.nama_lokasi + ', status ' + st
-      });
-    });
-    if (opts.draft && state.draft) {
-      drawPin(node, proj, { k: k, lat: state.draft.lat, lon: state.draft.lon, cls: 'draft', label: 'Titik baru' });
+    var map = L.map(node, {
+      minZoom: 5, maxZoom: 19, zoomSnap: 0.5,
+      maxBounds: [[ID_BOX.latMin, ID_BOX.lonMin], [ID_BOX.latMax, ID_BOX.lonMax]], maxBoundsViscosity: 0.85,
+      scrollWheelZoom: false      // aktif setelah peta diklik, supaya tidak membajak scroll halaman
+    }).setView([START_VIEW.lat, START_VIEW.lon], START_VIEW.zoom);
+
+    L.tileLayer(TILE_URL, { maxZoom: 19, attribution: TILE_ATTR })
+      .on('tileload', function () { gis.tileErrors = 0; showMapNote(''); })
+      .on('tileerror', function () {
+        gis.tileErrors += 1;
+        if (gis.tileErrors >= 4) showMapNote('Peta dasar belum dapat dimuat (periksa koneksi internet). Titik persimpangan dan pengisian koordinat tetap berfungsi.');
+      }).addTo(map);
+
+    gis.map = map;
+    gis.layer = L.layerGroup().addTo(map);
+    node.addEventListener('mouseleave', function () { map.scrollWheelZoom.disable(); });
+    map.on('click', function () { map.scrollWheelZoom.enable(); });
+    map.on('zoomend', function () { node.classList.toggle('labels-off', map.getZoom() < LABEL_MIN_ZOOM); });
+    node.classList.toggle('labels-off', map.getZoom() < LABEL_MIN_ZOOM);
+
+    if (MODE === 'add') {
+      node.classList.add('pickable');
+      map.on('click', function (e) { setCoordFields(e.latlng.lat, e.latlng.lng); });
+    } else {
+      map.on('click', function (e) { offerCreateHere(e.latlng); });
     }
+  }
+
+  // Tampilan awal: sesuaikan dengan titik terdaftar (sekali saja, supaya "Muat ulang" tidak menggeser peta)
+  function fitView() {
+    var map = gis.map;
+    if (!map || gis.fitted) return;
+    gis.fitted = true;
+    var pts = state.items.filter(hasGeo).map(function (i) { return [i.latitude, i.longitude]; });
+    if (state.draft) { map.setView([state.draft.lat, state.draft.lon], 16); return; }
+    if (!pts.length) return;
+    if (pts.length === 1) { map.setView(pts[0], 15); return; }
+    map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 16 });
+  }
+
+  function ensureVisible(lat, lon) {
+    var map = gis.map;
+    if (map && !map.getBounds().pad(-0.1).contains([lat, lon])) map.panTo([lat, lon]);
   }
 
   function redrawMaps() {
-    if (MODE === 'add') drawMap($('mapMini'), { selectable: false, draft: true });
-    else drawMap($('mapNet'), { selectable: true, draft: false });
+    var map = gis.map;
+    if (!map) return;
+    var seen = {};
+    state.items.filter(hasGeo).forEach(function (it) {
+      var id = it.id_persimpangan, st = statusText(id), cls = qClass(st);
+      var sel = MODE === 'list' && state.selected === id, key = cls + '|' + sel;
+      var pin = gis.pins[id];
+      if (!pin) {
+        pin = L.marker([it.latitude, it.longitude], { icon: pinIcon(cls, sel), title: it.nama_lokasi + ': ' + st, keyboard: true });
+        pin.bindTooltip(it.nama_lokasi, { permanent: true, direction: 'right', className: 'plabel', opacity: 1 });
+        if (MODE === 'list') pin.on('click', function () { select(id); });
+        pin.addTo(gis.layer);
+        pin._key = key;
+        gis.pins[id] = pin;
+      } else {
+        pin.setLatLng([it.latitude, it.longitude]);
+        if (pin._key !== key) { pin.setIcon(pinIcon(cls, sel)); pin._key = key; }
+      }
+      pin.setZIndexOffset(sel ? 1000 : (cls === 'q-kritis' ? 500 : 0));
+      seen[id] = true;
+    });
+    Object.keys(gis.pins).forEach(function (id) {
+      if (!seen[id]) { gis.layer.removeLayer(gis.pins[id]); delete gis.pins[id]; }
+    });
+    if (MODE === 'add') drawDraft();
+    fitView();
+  }
+
+  function drawDraft() {
+    var d = state.draft;
+    if (!d) { if (gis.draftPin) { gis.map.removeLayer(gis.draftPin); gis.draftPin = null; } return; }
+    if (!gis.draftPin) {
+      gis.draftPin = L.marker([d.lat, d.lon], { icon: pinIcon('draft', false), draggable: true, title: 'Titik baru (seret untuk menggeser)', keyboard: false, zIndexOffset: 2000 });
+      gis.draftPin.bindTooltip('Titik baru', { permanent: true, direction: 'right', className: 'plabel', opacity: 1 });
+      gis.draftPin.on('dragend', function () { var ll = gis.draftPin.getLatLng(); setCoordFields(ll.lat, ll.lng); });
+      gis.draftPin.addTo(gis.map);
+    } else {
+      gis.draftPin.setLatLng([d.lat, d.lon]);
+    }
+  }
+
+  // Klik pada peta (atau seret pin) mengisi kolom koordinat pada form
+  function setCoordFields(lat, lon) {
+    $('fLat').value = dec(lat.toFixed(6));
+    $('fLon').value = dec(lon.toFixed(6));
+    setErr('fLat', 'eLat', ''); setErr('fLon', 'eLon', '');
+    syncDraft();
+  }
+
+  // Mode daftar: klik titik kosong pada peta menawarkan pendaftaran persimpangan di lokasi itu
+  function offerCreateHere(ll) {
+    var box = el('div', 'popup-create');
+    box.appendChild(el('strong', null, 'Daftarkan persimpangan di sini?'));
+    box.appendChild(el('p', 'muted', fmtCoord(ll.lat) + ', ' + fmtCoord(ll.lng)));
+    var a = el('a', 'btn', 'Daftarkan di titik ini');
+    a.href = '/admin/intersections/add?lat=' + ll.lat.toFixed(6) + '&lon=' + ll.lng.toFixed(6);
+    box.appendChild(a);
+    L.popup({ closeButton: true, autoPan: true }).setLatLng(ll).setContent(box).openOn(gis.map);
   }
 
   /* ---------- daftar, ringkasan, detail ---------- */
@@ -322,6 +283,8 @@
   function select(id) {
     state.selected = id;
     renderTable(); renderDetail(); redrawMaps();
+    var it = state.items.filter(function (i) { return i.id_persimpangan === id; })[0];
+    if (it && hasGeo(it)) ensureVisible(it.latitude, it.longitude);
   }
 
   /* ---------- pemuatan data ---------- */
@@ -331,13 +294,30 @@
     return d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour12: false }).replace(/\./g, ':');
   }
 
+  function applyLive(data) {
+    var live = {};
+    (data.simpang || []).forEach(function (s) { live[s.id_persimpangan] = s; });
+    state.live = live;
+    state.liveAt = wibClock(data.diperbarui);
+  }
+
   function loadLive() {
-    return request(API_DASH).then(function (data) {
-      var live = {};
-      (data.simpang || []).forEach(function (s) { live[s.id_persimpangan] = s; });
-      state.live = live;
-      state.liveAt = wibClock(data.diperbarui);
-    }).catch(function () { /* status opsional: tabel dan peta tetap tampil tanpa status */ });
+    return request(API_DASH).then(applyLive)
+      .catch(function () { /* status opsional: tabel dan peta tetap tampil tanpa status */ });
+  }
+
+  // Menjalankan satu siklus di semua simpang (sama dengan tombol "Muat ulang data" di dashboard)
+  function refreshLive() {
+    return request(API_REFRESH, { method: 'POST' }).then(applyLive)
+      .catch(function () { /* status opsional */ });
+  }
+
+  // Simpang yang belum pernah menjalankan siklus (mis. baru didaftarkan) dilengkapi sekali saat halaman dibuka
+  function ensureData() {
+    var missing = state.items.some(function (i) { return statusText(i.id_persimpangan) === 'Belum ada data'; });
+    if (!missing || state.autoRefreshed) return null;
+    state.autoRefreshed = true;
+    return refreshLive();
   }
 
   function loadAll() {
@@ -346,7 +326,7 @@
       setOnline(true, 'Terhubung');
       showError('');
       return loadLive();
-    }).then(renderAll).catch(function (e) {
+    }).then(ensureData).then(renderAll).catch(function (e) {
       if (e.status === 403) { showDenied(e.message); return; }
       setOnline(false, 'Gagal memuat');
       showError(e.message || 'Gagal memuat data persimpangan.');
@@ -417,8 +397,9 @@
     hint.className = 'hint' + (outside ? ' warn' : '');
     hint.textContent = outside
       ? 'Koordinat ini berada di luar wilayah Indonesia. Periksa apakah latitude dan longitude tertukar.'
-      : 'Isi koordinat atau klik titik pada peta di sebelah. Boleh dikosongkan dan dilengkapi nanti.';
+      : 'Isi koordinat, klik titik pada peta, atau seret pin. Boleh dikosongkan dan dilengkapi nanti.';
     redrawMaps();
+    if (ok) ensureVisible(lat, lon);
   }
 
   function renderLanes() {
@@ -429,17 +410,6 @@
       li.appendChild(el('span', on ? 'ok' : 'muted', on ? 'Aktif (simulasi)' : 'Nonaktif'));
       ul.appendChild(li);
     });
-  }
-
-  function onMapClick(ev) {
-    var node = $('mapMini'), proj = node._proj;
-    if (!proj) return;
-    var rect = node.getBoundingClientRect();
-    var x = (ev.clientX - rect.left) * (proj.W / rect.width), y = (ev.clientY - rect.top) * (proj.H / rect.height);
-    $('fLat').value = dec(proj.lat(y).toFixed(6));
-    $('fLon').value = dec(proj.lon(x).toFixed(6));
-    setErr('fLat', 'eLat', ''); setErr('fLon', 'eLon', '');
-    syncDraft();
   }
 
   function onSubmit(ev) {
@@ -494,11 +464,16 @@
   }
 
   /* ---------- awal ---------- */
-  var resizeRaf = 0;
-  window.addEventListener('resize', function () {
-    if (resizeRaf) return;
-    resizeRaf = window.requestAnimationFrame(function () { resizeRaf = 0; redrawMaps(); });
-  });
+  // /admin/intersections/add?lat=-7.26&lon=112.75 (dari klik peta pada halaman daftar)
+  function prefillFromQuery() {
+    var q = window.location.search, mLat = /[?&]lat=(-?\d+(?:\.\d+)?)/.exec(q), mLon = /[?&]lon=(-?\d+(?:\.\d+)?)/.exec(q);
+    if (!mLat || !mLon) return;
+    var lat = Number(mLat[1]), lon = Number(mLon[1]);
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
+    $('fLat').value = dec(lat.toFixed(6));
+    $('fLon').value = dec(lon.toFixed(6));
+    syncDraft();
+  }
 
   function init() {
     if (!store('access_token')) { window.location.replace('/login'); return; }
@@ -524,13 +499,14 @@
       $('fDesk').addEventListener('input', updateCounter);
       $('fNama').addEventListener('input', function () { if ($('fNama').value.trim()) setErr('fNama', 'eNama', ''); });
       $('fLoop').addEventListener('change', renderLanes);
-      $('mapMini').classList.add('pickable');
-      $('mapMini').addEventListener('click', onMapClick);
+      initMap();
       updateCounter(); renderLanes();
+      prefillFromQuery();
       $('fNama').focus();
     } else {
       $('listSection').hidden = false;
-      $('btnReload').addEventListener('click', function () { loadAll(); });
+      initMap();
+      $('btnReload').addEventListener('click', function () { loadAll().then(refreshLive).then(renderAll); });
       var m = /[?&]berhasil=(\d+)/.exec(window.location.search);
       if (m) {
         state.freshId = Number(m[1]); state.selected = state.freshId;
