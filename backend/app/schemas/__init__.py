@@ -8,6 +8,23 @@ class LoginRequest(BaseModel):
     password: Optional[str] = ""
 
 
+class RegisterRequest(BaseModel):
+    full_name: Optional[str] = ""   # nama dari form login.html
+    nama: Optional[str] = ""        # alias, sama dengan field di Kelola Sistem
+    username: Optional[str] = ""
+    password: Optional[str] = ""
+    role: Optional[str] = ""        # kosong = Petugas Lalu Lintas
+
+
+class ForgotPasswordRequest(BaseModel):
+    username: Optional[str] = ""
+
+
+class ResetPasswordRequest(BaseModel):
+    reset_token: Optional[str] = ""
+    new_password: Optional[str] = ""
+
+
 class IntersectionCreate(BaseModel):
     nama_lokasi: Optional[str] = ""
     deskripsi: Optional[str] = None

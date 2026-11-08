@@ -6,6 +6,7 @@
                           boleh tanpa login (mengembalikan None bila tidak ada token valid); bila false
                           maka sama ketatnya dengan `require_roles`.
 """
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -21,6 +22,12 @@ from app.models import Pengguna
 
 ROLE_ADMIN = "Administrator"
 ROLE_PETUGAS = "Petugas Lalu Lintas"
+
+# Aturan input akun (dipakai Registrasi, Reset Password, dan Kelola Sistem)
+PASS_RULE = re.compile(r"^(?=.*[A-Z])(?=.*\d).{8,}$")
+USERNAME_RULE = re.compile(r"[A-Za-z0-9_.]{3,50}")
+PASS_RULE_MSG = "Password minimal 8 karakter, mengandung huruf kapital dan angka."
+USERNAME_RULE_MSG = "Username 3-50 karakter alfanumerik (boleh _ dan .)."
 
 # rounds dibaca dari settings supaya tes bisa memakai nilai kecil (BCRYPT_ROUNDS=4)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=settings.BCRYPT_ROUNDS)
