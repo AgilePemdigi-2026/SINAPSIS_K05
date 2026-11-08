@@ -17,15 +17,22 @@ def ensure_schema() -> None:
     """Menambah kolom baru pada database lama (create_all tidak mengubah tabel yang sudah ada)."""
     from sqlalchemy import inspect, text
 
+    # tabel -> {kolom: definisi SQL}; hanya kolom yang belum ada yang ditambahkan
+    wanted = {
+        "pengguna": {"reset_token": "VARCHAR(64)", "reset_token_expires": "TIMESTAMP"},
+        "persimpangan": {"latitude": "FLOAT", "longitude": "FLOAT",
+                         "detektor_virtual": "BOOLEAN NOT NULL DEFAULT TRUE"},
+    }
     insp = inspect(engine)
-    if "pengguna" not in insp.get_table_names():
-        return
-    cols = {c["name"] for c in insp.get_columns("pengguna")}
+    tables = set(insp.get_table_names())
     with engine.begin() as conn:
-        if "reset_token" not in cols:
-            conn.execute(text("ALTER TABLE pengguna ADD COLUMN reset_token VARCHAR(64)"))
-        if "reset_token_expires" not in cols:
-            conn.execute(text("ALTER TABLE pengguna ADD COLUMN reset_token_expires TIMESTAMP"))
+        for table, columns in wanted.items():
+            if table not in tables:
+                continue
+            have = {c["name"] for c in insp.get_columns(table)}
+            for name, ddl in columns.items():
+                if name not in have:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
 
 
 def get_db():

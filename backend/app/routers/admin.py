@@ -1,4 +1,5 @@
 """Fitur Kelola Sistem (khusus Administrator): persimpangan, parameter AI, pengguna, simulasi."""
+import math
 import re
 from datetime import datetime
 
@@ -21,10 +22,18 @@ _admin = require_roles(ROLE_ADMIN)
 
 
 # ---- Persimpangan ----------------------------------------------------------
+DESKRIPSI_MAX = 250  # SRS 3.1.2 / Hi-Fi: textarea "Deskripsi & Karakteristik Arus" maks. 250 karakter
+
+
+def _intersection_dict(p: Persimpangan) -> dict:
+    return {"id_persimpangan": p.id_persimpangan, "nama_lokasi": p.nama_lokasi, "deskripsi": p.deskripsi,
+            "latitude": p.latitude, "longitude": p.longitude, "detektor_virtual": bool(p.detektor_virtual),
+            "jalur": [{"id_jalur": j.id_jalur, "arah": j.arah} for j in p.jalur]}
+
+
 @router.get("/intersections")
 def list_intersections(db: Session = Depends(get_db), _=Depends(_admin)):
-    return [{"id_persimpangan": p.id_persimpangan, "nama_lokasi": p.nama_lokasi, "deskripsi": p.deskripsi,
-             "jalur": [{"id_jalur": j.id_jalur, "arah": j.arah} for j in p.jalur]}
+    return [_intersection_dict(p)
             for p in db.scalars(select(Persimpangan).order_by(Persimpangan.id_persimpangan)).all()]
 
 
@@ -35,9 +44,18 @@ def add_intersection(req: IntersectionCreate, db: Session = Depends(get_db), _=D
         raise HTTPException(422, "Nama lokasi persimpangan wajib diisi!")
     if len(nama) > 100:
         raise HTTPException(422, "Nama lokasi maksimal 100 karakter.")
-    if req.deskripsi and len(req.deskripsi) > 500:
-        raise HTTPException(422, "Deskripsi maksimal 500 karakter.")
-    p = Persimpangan(nama_lokasi=nama, deskripsi=req.deskripsi,
+    deskripsi = (req.deskripsi or "").strip() or None
+    if deskripsi and len(deskripsi) > DESKRIPSI_MAX:
+        raise HTTPException(422, f"Deskripsi maksimal {DESKRIPSI_MAX} karakter.")
+    lat, lon = req.latitude, req.longitude
+    if (lat is None) != (lon is None):
+        raise HTTPException(422, "Latitude dan longitude harus diisi berpasangan.")
+    if lat is not None and not (-90 <= lat <= 90 and math.isfinite(lat)):
+        raise HTTPException(422, "Latitude harus berada di antara -90 dan 90.")
+    if lon is not None and not (-180 <= lon <= 180 and math.isfinite(lon)):
+        raise HTTPException(422, "Longitude harus berada di antara -180 dan 180.")
+    p = Persimpangan(nama_lokasi=nama, deskripsi=deskripsi, latitude=lat, longitude=lon,
+                     detektor_virtual=True if req.detektor_virtual is None else req.detektor_virtual,
                      jalur=[Jalur(arah=a) for a in settings.LANE_NAMES])  # 1 persimpangan = 4 jalur
     db.add(p)
     db.commit()
