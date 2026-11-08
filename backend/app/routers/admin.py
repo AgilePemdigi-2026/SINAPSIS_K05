@@ -1,4 +1,5 @@
 """Fitur Kelola Sistem (khusus Administrator): persimpangan, parameter AI, pengguna, simulasi."""
+import logging
 import math
 import re
 from datetime import datetime
@@ -59,8 +60,16 @@ def add_intersection(req: IntersectionCreate, db: Session = Depends(get_db), _=D
                      jalur=[Jalur(arah=a) for a in settings.LANE_NAMES])  # 1 persimpangan = 4 jalur
     db.add(p)
     db.commit()
+    # Satu siklus simulasi langsung dijalankan agar simpang baru punya data (status, jumlah kendaraan, diagram)
+    # tanpa menunggu "Muat ulang"; kegagalan simulasi tidak membatalkan pendaftaran.
+    try:
+        data_awal = svc.run_cycle(db, p) is not None
+    except Exception:
+        db.rollback()
+        logging.getLogger(__name__).exception("Siklus awal persimpangan %s gagal", p.id_persimpangan)
+        data_awal = False
     return {"pesan": "Persimpangan baru berhasil ditambahkan!", "id_persimpangan": p.id_persimpangan,
-            "redirect": "/admin/intersections"}
+            "data_awal": data_awal, "redirect": "/admin/intersections"}
 
 
 # ---- Parameter sistem AI ---------------------------------------------------

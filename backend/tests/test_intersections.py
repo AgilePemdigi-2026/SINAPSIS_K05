@@ -107,5 +107,43 @@ def test_admin_pages_and_assets_served(client):
     assert client.get("/static/admin.css").status_code == 200
 
 
+def test_map_uses_bundled_leaflet_without_cdn(client):
+    """Leaflet disertakan di repo (tanpa CDN); hanya peta dasar OpenStreetMap yang dimuat dari internet."""
+    assert client.get("/static/vendor/leaflet/leaflet.js").status_code == 200
+    assert client.get("/static/vendor/leaflet/leaflet.css").status_code == 200
+    for path in ("/admin/intersections", "/admin/intersections/add"):
+        html = client.get(path).text
+        assert "/static/vendor/leaflet/leaflet.js" in html and "/static/vendor/leaflet/leaflet.css" in html
+        for cdn in ("unpkg.com", "cdnjs.cloudflare.com", "cdn.jsdelivr.net"):
+            assert cdn not in html
+    js = client.get("/static/admin_intersections.js").text
+    assert "tile.openstreetmap.org" in js and "OpenStreetMap" in js  # atribusi wajib
+
+
+def test_map_ids_are_unique_per_page(client):
+    import re
+    for path in ("/admin/intersections", "/admin/intersections/add"):
+        ids = re.findall(r'\sid="([^"]+)"', client.get(path).text)
+        assert len(ids) == len(set(ids)), [i for i in ids if ids.count(i) > 1]
+
+
+def test_new_intersection_has_data_immediately(client, admin):
+    """Simpang baru langsung punya data simulasi (status, jumlah kendaraan, rincian jalur), tanpa 'Muat ulang'."""
+    r = client.post("/api/admin/intersections", headers=admin,
+                    json={"nama_lokasi": "Simpang Data Awal", "latitude": -7.2806, "longitude": 112.7809})
+    assert r.status_code == 201 and r.json()["data_awal"] is True
+    new_id = r.json()["id_persimpangan"]
+    item = next(s for s in client.get("/api/monitoring/dashboard", headers=admin).json()["simpang"]
+                if s["id_persimpangan"] == new_id)
+    assert item["status"] in ("Lancar", "Padat", "Kritis")
+    assert len(item["jalur"]) == 4 and item["siklus"] is not None and item["jumlah_kendaraan"] >= 0
+
+
+def test_new_intersection_survives_refresh(client, admin):
+    new_id = client.post("/api/admin/intersections", headers=admin, json={"nama_lokasi": "Simpang Refresh"}).json()["id_persimpangan"]
+    data = client.post("/api/monitoring/refresh", headers=admin).json()
+    assert new_id in [s["id_persimpangan"] for s in data["simpang"] if s["status"] != "Belum ada data"]
+
+
 def test_dashboard_links_to_kelola_sistem(client):
     assert 'href="/admin/intersections"' in client.get("/dashboard").text
