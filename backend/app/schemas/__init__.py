@@ -28,6 +28,9 @@ class ResetPasswordRequest(BaseModel):
 class IntersectionCreate(BaseModel):
     nama_lokasi: Optional[str] = ""
     deskripsi: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    detektor_virtual: Optional[bool] = True
 
 
 class ParameterUpdate(BaseModel):

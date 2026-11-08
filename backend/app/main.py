@@ -111,6 +111,17 @@ def render_dashboard_page():
     raise HTTPException(404, "File dashboard.html tidak ditemukan. Pastikan folder frontend atau templates tersedia.")
 
 
+@app.get("/admin/intersections", tags=["UI"])
+@app.get("/admin/intersections/add", tags=["UI"])
+def render_admin_intersections_page():
+    """Kelola Sistem (F5): daftar + peta persimpangan, dan form registrasi persimpangan baru.
+    Halaman statis; akses dibatasi di API (/api/admin/*, khusus Administrator)."""
+    page = TEMPLATES_DIR / "admin_intersections.html"
+    if not page.exists():
+        raise HTTPException(404, "File admin_intersections.html tidak ditemukan.")
+    return FileResponse(page)
+
+
 @app.get("/api/info", tags=["Umum"])
 def info():
     return {"app": "SINAPSIS", "status": "online"}

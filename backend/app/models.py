@@ -1,7 +1,7 @@
 """Entity (tabel) SINAPSIS — mengikuti CDM/PDM pada Data Mockup & Laporan (Bab VI)."""
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -25,6 +25,11 @@ class Persimpangan(Base):
     id_persimpangan: Mapped[int] = mapped_column(Integer, primary_key=True)
     nama_lokasi: Mapped[str] = mapped_column(String(100))
     deskripsi: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # F5 (GIS): koordinat titik persimpangan (derajat desimal, WGS84). Boleh kosong untuk data lama.
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Opsi form "Aktifkan Detektor Loop Virtual" (Hi-Fi 3.1.2)
+    detektor_virtual: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     jalur: Mapped[list["Jalur"]] = relationship(back_populates="persimpangan", cascade="all, delete-orphan")
 
 
