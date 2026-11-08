@@ -14,9 +14,6 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-# Import Router Auth System Baru (Fitur Register, Forgot, Reset)
-from app.auth_system import router as auth_system_router
-
 # Setup Path Absolut
 CURRENT_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = CURRENT_DIR / "templates"
@@ -40,9 +37,10 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 async def lifespan(app: FastAPI):
     # Melakukan bypass koneksi DB saat startup agar tidak memicu 500 error jika DB bermasalah
     try:
-        from app.core.database import Base, SessionLocal, engine
+        from app.core.database import Base, SessionLocal, engine, ensure_schema
         from app.services.seed import seed
         Base.metadata.create_all(engine)
+        ensure_schema()
         with SessionLocal() as db:
             seed(db)
     except Exception as e:
@@ -84,13 +82,10 @@ if FRONTEND_DIR is not None:
     app.mount("/frontend", StaticFiles(directory=str(FRONTEND_DIR)), name="frontend")
 
 
-# 1. REGISTER ROUTER AUTH SYSTEM BARU
-app.include_router(auth_system_router)
+# Semua router (Login/Registrasi/Reset, Monitoring, Prediction, Admin, Emergency)
+from app.routers import admin, auth, emergency, monitoring, prediction  # noqa: E402
 
-# 2. REGISTER ROUTER LAINNYA (Monitoring, Prediction, Admin, Emergency)
-from app.routers import admin, emergency, monitoring, prediction  # noqa: E402
-
-for r in (monitoring.router, prediction.router, admin.router, emergency.router):
+for r in (auth.router, monitoring.router, prediction.router, admin.router, emergency.router):
     app.include_router(r)
 
 
@@ -113,7 +108,7 @@ def render_dashboard_page():
     for f in candidates:
         if f.exists():
             return FileResponse(f)
-    raise HTTPException(404, "File dashboard.html tidak ditemukan.")
+    raise HTTPException(404, "File dashboard.html tidak ditemukan. Pastikan folder frontend atau templates tersedia.")
 
 
 @app.get("/api/info", tags=["Umum"])

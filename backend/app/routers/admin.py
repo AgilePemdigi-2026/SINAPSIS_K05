@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.security import ROLE_ADMIN, ROLE_PETUGAS, hash_password, require_roles
+from app.core.security import ROLE_ADMIN, ROLE_PETUGAS, PASS_RULE, hash_password, require_roles
 from app.models import Jalur, KonfigurasiSistem, Pengguna, Persimpangan
 from app.schemas import IntersectionCreate, ParameterUpdate, SimulationRequest, UserCreate
 from app.services import monitoring_service as svc
@@ -84,7 +84,7 @@ def parameter_history(db: Session = Depends(get_db), _=Depends(_admin)):
 
 
 # ---- Pengguna --------------------------------------------------------------
-_PASS_RULE = re.compile(r"^(?=.*[A-Z])(?=.*\d).{8,}$")
+_PASS_RULE = PASS_RULE
 
 
 @router.get("/users")

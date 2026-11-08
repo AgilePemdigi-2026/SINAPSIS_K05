@@ -15,6 +15,9 @@ class Pengguna(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     password: Mapped[str] = mapped_column(String(255))  # hash bcrypt
     role: Mapped[str] = mapped_column(String(30))
+    # Lupa password: yang disimpan hanya hash SHA-256 token (bukan token aslinya), berlaku 15 menit.
+    reset_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    reset_token_expires: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class Persimpangan(Base):
