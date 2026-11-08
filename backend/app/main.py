@@ -1,6 +1,6 @@
 """Titik masuk aplikasi SINAPSIS API.
 
-Jalankan (dari folder backend): uvicorn app.main:app --reload
+Jalankan (dari folder backend): PYTHONPATH=. python -m uvicorn app.main:app --reload
 """
 import asyncio
 import logging
@@ -13,6 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+
+# Import Router Auth System Baru (Fitur Register, Forgot, Reset)
+from app.auth_system import router as auth_system_router
 
 # Setup Path Absolut
 CURRENT_DIR = Path(__file__).resolve().parent
@@ -30,7 +33,6 @@ def _find_frontend_dir():
 
 
 FRONTEND_DIR = _find_frontend_dir()
-
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
@@ -48,6 +50,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# Inisialisasi Utama Aplikasi FastAPI (Cukup 1 kali saja)
 app = FastAPI(
     title="SINAPSIS API",
     version="1.0.0",
@@ -56,7 +59,7 @@ app = FastAPI(
 )
 
 
-# Global Error Handler: detail error masuk log server, bukan dibocorkan ke klien
+# Global Error Handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled error pada %s %s", request.method, request.url.path)
@@ -81,11 +84,13 @@ if FRONTEND_DIR is not None:
     app.mount("/frontend", StaticFiles(directory=str(FRONTEND_DIR)), name="frontend")
 
 
-# Registrasi router. Sengaja TANPA try/except: bila gagal impor, aplikasi harus berhenti dengan
-# pesan jelas, bukan jalan terus dengan rute yang hilang (gejalanya 404 di semua tes).
-from app.routers import admin, auth, emergency, monitoring, prediction  # noqa: E402
+# 1. REGISTER ROUTER AUTH SYSTEM BARU
+app.include_router(auth_system_router)
 
-for r in (auth.router, monitoring.router, prediction.router, admin.router, emergency.router):
+# 2. REGISTER ROUTER LAINNYA (Monitoring, Prediction, Admin, Emergency)
+from app.routers import admin, emergency, monitoring, prediction  # noqa: E402
+
+for r in (monitoring.router, prediction.router, admin.router, emergency.router):
     app.include_router(r)
 
 
@@ -100,7 +105,7 @@ def render_login_page(request: Request):
 
 @app.get("/dashboard", tags=["UI"])
 def render_dashboard_page():
-    """Halaman Dashboard. Prioritas: FRONTEND_DIR/dashboard.html, lalu templates/dashboard.html."""
+    """Halaman Dashboard."""
     candidates = []
     if FRONTEND_DIR is not None:
         candidates.append(Path(FRONTEND_DIR) / "dashboard.html")
@@ -108,7 +113,7 @@ def render_dashboard_page():
     for f in candidates:
         if f.exists():
             return FileResponse(f)
-    raise HTTPException(404, "File dashboard.html tidak ditemukan di folder frontend/ maupun templates/.")
+    raise HTTPException(404, "File dashboard.html tidak ditemukan.")
 
 
 @app.get("/api/info", tags=["Umum"])
@@ -116,7 +121,7 @@ def info():
     return {"app": "SINAPSIS", "status": "online"}
 
 
-# --- WEBSOCKET REALTIME (wajib token JWT Administrator / Petugas) ---
+# --- WEBSOCKET REALTIME ---
 @app.websocket("/ws/live")
 async def ws_live(ws: WebSocket, token: str = "", interval: float = 3.0):
     from app.core.database import SessionLocal
@@ -127,7 +132,7 @@ async def ws_live(ws: WebSocket, token: str = "", interval: float = 3.0):
         user = user_from_token(token, db) if token else None
         allowed = user is not None and user.role in (ROLE_ADMIN, ROLE_PETUGAS)
     if not allowed:
-        await ws.close(code=1008)  # policy violation: token tidak ada / tidak valid
+        await ws.close(code=1008)
         return
     await ws.accept()
     try:
