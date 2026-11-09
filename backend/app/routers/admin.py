@@ -15,6 +15,7 @@ from app.models import Jalur, KonfigurasiSistem, Pengguna, Persimpangan
 from app.schemas import IntersectionCreate, ParameterUpdate, SimulationRequest, UserCreate
 from app.services import monitoring_service as svc
 from app.services.arms import arm_type, normalize_arms
+from app.services.neuromorphic import Params
 from app.services.sensor_source import SyntheticSensorSource
 from app.services.simulation_service import run_simulation
 from app.core.timeutil import utcnow
@@ -79,12 +80,29 @@ def add_intersection(req: IntersectionCreate, db: Session = Depends(get_db), _=D
 
 
 # ---- Parameter sistem AI ---------------------------------------------------
+# label & satuan untuk halaman Parameter Sistem
+PARAM_META = {
+    "spike_threshold": ("Spike Threshold (deteksi lonjakan antrean)", "rasio"),
+    "min_green_time": ("Durasi Hijau Minimum", "detik"),
+    "max_green_time": ("Durasi Hijau Maksimum", "detik"),
+    "amber_duration": ("Durasi Kuning (Amber Clearance)", "detik"),
+}
+
+
 @router.get("/parameters")
 def list_parameters(db: Session = Depends(get_db), _=Depends(_admin)):
-    p = svc.load_params(db)
+    p, base = svc.load_params(db), Params()
     now = {"spike_threshold": p.spike_threshold, "min_green_time": p.min_green,
            "max_green_time": p.max_green, "amber_duration": p.amber}
-    return [{"jenis_parameter": k, "nilai_aktif": now[k], "keterangan": v[3], "rentang": [v[1], v[2]]}
+    default = {"spike_threshold": base.spike_threshold, "min_green_time": base.min_green,
+               "max_green_time": base.max_green, "amber_duration": base.amber}
+    last = {}
+    for r in db.scalars(select(KonfigurasiSistem).order_by(KonfigurasiSistem.waktu_perubahan.desc(),
+                                                           KonfigurasiSistem.id_konfigurasi.desc())).all():
+        last.setdefault(r.jenis_parameter, r)
+    return [{"jenis_parameter": k, "label": PARAM_META[k][0], "satuan": PARAM_META[k][1], "tipe": v[0].__name__, "nilai_aktif": now[k],
+             "baseline": default[k], "keterangan": v[3], "rentang": [v[1], v[2]],
+             "diubah_terakhir": last[k].waktu_perubahan.isoformat() if k in last else None}
             for k, v in svc.PARAM_KEYS.items()]
 
 
@@ -102,17 +120,22 @@ def update_parameter(req: ParameterUpdate, db: Session = Depends(get_db), user=D
     new_max = nilai if req.jenis_parameter == "max_green_time" else cfg.max_green
     if new_min >= new_max:
         raise HTTPException(422, "Durasi hijau minimum harus lebih kecil dari maksimum.")
-    db.add(KonfigurasiSistem(id_pengguna=user.id_pengguna, jenis_parameter=req.jenis_parameter,
-                             nilai=str(nilai), waktu_perubahan=utcnow()))
+    row = KonfigurasiSistem(id_pengguna=user.id_pengguna, jenis_parameter=req.jenis_parameter,
+                            nilai=str(nilai), waktu_perubahan=utcnow())
+    db.add(row)
     db.commit()
-    return {"pesan": "Parameter konfigurasi berhasil diperbarui!", "jenis_parameter": req.jenis_parameter, "nilai": nilai}
+    return {"pesan": "Parameter konfigurasi berhasil diperbarui!", "jenis_parameter": req.jenis_parameter, "nilai": nilai,
+            "id_transaksi": f"TRX-{row.id_konfigurasi:06d}", "waktu": row.waktu_perubahan.isoformat(),
+            "catatan": "Berlaku pada siklus pemantauan berikutnya."}
 
 
 @router.get("/parameters/history")
 def parameter_history(db: Session = Depends(get_db), _=Depends(_admin)):
     rows = db.scalars(select(KonfigurasiSistem).order_by(KonfigurasiSistem.waktu_perubahan.desc(),
                                                          KonfigurasiSistem.id_konfigurasi.desc()).limit(50)).all()
-    return [{"jenis_parameter": r.jenis_parameter, "nilai": r.nilai, "diubah_oleh": r.id_pengguna,
+    names = {u.id_pengguna: u.nama for u in db.scalars(select(Pengguna)).all()}
+    return [{"id_transaksi": f"TRX-{r.id_konfigurasi:06d}", "jenis_parameter": r.jenis_parameter, "nilai": r.nilai,
+             "diubah_oleh": r.id_pengguna, "diubah_oleh_nama": names.get(r.id_pengguna),
              "waktu": r.waktu_perubahan.isoformat()} for r in rows]
 
 
@@ -142,7 +165,7 @@ def add_user(req: UserCreate, db: Session = Depends(get_db), _=Depends(_admin)):
     u = Pengguna(nama=nama, username=username, password=hash_password(password), role=role)
     db.add(u)
     db.commit()
-    return {"pesan": "Akun pengguna berhasil dibuat!", "id_pengguna": u.id_pengguna, "redirect": "/admin/users"}
+    return {"pesan": "Akun pengguna berhasil dibuat!", "id_pengguna": u.id_pengguna, "role": u.role, "redirect": "/admin/users"}
 
 
 # ---- Simulasi skenario -----------------------------------------------------
