@@ -12,14 +12,15 @@
       <span class="logo">SINAPSIS</span>
       <span class="brand-sub">Dinas Perhubungan · Telemetri lalu lintas</span>
     </div>
-    <nav class="nav" aria-label="Navigasi utama">
-      <a class="active" aria-current="page">Dashboard</a>
-      <a class="disabled" title="Segera hadir">Kelola Sistem</a>
-      <a class="disabled" title="Segera hadir">Permintaan Darurat</a>
+    <nav class="nav" id="navbar" aria-label="Navigasi utama">
+      <a href="/dashboard" class="active" aria-current="page">Dashboard</a>
+      <a id="navKelola" href="/admin/intersections">Kelola Sistem</a>
+      <a id="navDarurat" href="/emergency/request">Permintaan Darurat</a>
     </nav>
     <div class="sysinfo">
       <span id="clock" class="clock">--</span>
       <span id="sysState" class="sysstate">Memuat</span>
+      <span id="userRole" class="muted" style="color:#fff;opacity:.8;font-size:11px;"></span>
     </div>
   </header>
 
@@ -41,13 +42,13 @@
   </div>
 
   <div id="banners" aria-live="polite">
-    <div id="bannerAlert" class="banner banner-alert" hidden></div>
+    <div id="bannerAlert" class="banner banner-alert congestion-alert" hidden></div>
     <div id="bannerSensor" class="banner banner-sensor" hidden></div>
     <div id="bannerError" class="banner banner-error" hidden></div>
     <div id="toast" class="toast" hidden></div>
   </div>
 
-  <main class="page">
+  <main class="page" id="traffic-density-map">
     <section id="kpis" class="kpis" aria-label="Ringkasan jaringan"></section>
 
     <div class="grid">
@@ -68,8 +69,8 @@
         <section class="panel" aria-labelledby="listTitle">
           <div class="panel-head"><h2 id="listTitle">Status persimpangan</h2><span id="listCount" class="muted"></span></div>
           <div class="list-head"><span>Persimpangan</span><span>Status</span><span class="num">Kendaraan</span></div>
-          <div id="statusList" class="status-list"></div>
-          <p class="note">Kendaraan = jumlah pada siklus terakhir (4 jalur). Bilah = kepadatan jalur terpadat.</p>
+          <div id="statusList" class="status-list intersection-status-list"></div>
+          <p class="note">Kendaraan = jumlah pada siklus terakhir (semua lengan). Bilah = kepadatan jalur terpadat.</p>
         </section>
 
         <section class="panel" aria-labelledby="predTitle">
@@ -112,5 +113,21 @@
   </footer>
 
   <script src="/static/dashboard.js"></script>
+  <script>
+  /* RBAC Navigation - Ryan (GIS) */
+  (function () {
+    var role = localStorage.getItem('user_role');
+    var nama = localStorage.getItem('user_nama');
+    var roleEl = document.getElementById('userRole');
+    if (roleEl && nama) roleEl.textContent = nama + ' (' + role + ')';
+    if (role === 'Administrator') {
+      var el = document.getElementById('navKelola');
+      if (el) { el.hidden = false; el.classList.remove('disabled'); }
+    } else if (role === 'Petugas Lalu Lintas') {
+      var el2 = document.getElementById('navDarurat');
+      if (el2) { el2.hidden = false; el2.classList.remove('disabled'); }
+    }
+  })();
+  </script>
 </body>
 </html>

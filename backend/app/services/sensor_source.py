@@ -36,16 +36,19 @@ class SyntheticSensorSource(SensorSource):
         "NIGHT": ([2, 2, 2, 2], 1.0, 4),
     }
 
-    def __init__(self, profile: str = "NORMAL", noise: bool = False, seed: int | None = None):
+    def __init__(self, profile: str = "NORMAL", noise: bool = False, seed: int | None = None,
+                 arms: list[str] | None = None):
         if profile not in self.PROFILES:
             raise ValueError(f"profil tidak dikenal: {profile}")
         self.profile, self.noise = profile, noise
         self.rng = random.Random(seed)
+        # indeks profil per lengan; persimpangan 2-3 lengan hanya membaca lengan yang ada
+        self.idx = [settings.LANE_NAMES.index(a) for a in (arms or settings.LANE_NAMES)]
 
     def read(self) -> dict:
         means, sd, hour = self.PROFILES[self.profile]
         sd = sd * (2 if self.noise else 1)
-        counts = [max(0, min(settings.MAX_VEHICLES, round(self.rng.gauss(m, sd)))) for m in means]
+        counts = [max(0, min(settings.MAX_VEHICLES, round(self.rng.gauss(means[i], sd)))) for i in self.idx]
         return {"counts": counts, "hour": hour}
 
 

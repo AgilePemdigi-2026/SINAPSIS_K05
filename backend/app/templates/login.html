@@ -423,7 +423,6 @@
                     <label for="regRole">Role Akses</label>
                     <select id="regRole">
                         <option value="petugas">Petugas Lalu Lintas</option>
-                        <option value="admin">Administrator</option>
                     </select>
                 </div>
 
@@ -637,7 +636,7 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    showNotif(data.message || 'Registrasi berhasil! Silakan Sign In.', true);
+                    showNotif(data.pesan || 'Registrasi berhasil! Silakan Sign In.', true);
                     setTimeout(() => switchView('viewLogin'), 2000);
                 } else {
                     showNotif(data.detail || 'Registrasi gagal.');
@@ -666,8 +665,8 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    showNotif('Token diterbitkan! Silakan buat password baru.', true);
-                    document.getElementById('resetToken').value = data.reset_token;
+                    showNotif(data.pesan || 'Token diterbitkan! Silakan buat password baru.', true);
+                    document.getElementById('resetToken').value = data.reset_token || '';
                     document.getElementById('stepReqToken').style.display = 'none';
                     document.getElementById('stepSetNewPassword').style.display = 'block';
                 } else {
@@ -698,7 +697,7 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    showNotif(data.message || 'Password berhasil diperbarui!', true);
+                    showNotif(data.pesan || 'Password berhasil diperbarui!', true);
                     setTimeout(() => switchView('viewLogin'), 2000);
                 } else {
                     showNotif(data.detail || 'Reset password gagal.');

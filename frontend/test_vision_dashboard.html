@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Uji Deteksi Persimpangan</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Arial, sans-serif;
+      background: #f3f6f9;
+      color: #1f2937;
+    }
+
+    body {
+      margin: 0;
+      padding: 2rem;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    .panel {
+      background: #fff;
+      border: 1px solid #dbe3eb;
+      border-radius: 10px;
+      padding: 1.25rem;
+      box-shadow: 0 2px 8px rgb(15 23 42 / 8%);
+    }
+
+    .inputs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      font-weight: 700;
+    }
+
+    input[type="file"] {
+      width: 100%;
+    }
+
+    button {
+      margin-top: 1.25rem;
+      border: 0;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      background: #2563eb;
+      color: #fff;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.65;
+    }
+
+    #status {
+      margin-top: 1rem;
+      min-height: 1.25rem;
+    }
+
+    #summary {
+      margin-top: 1.5rem;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 0;
+      padding: 1rem;
+      border-radius: 6px;
+      background: #111827;
+      color: #e5e7eb;
+    }
+
+    .visualizations {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .visualization {
+      margin: 0;
+      overflow: hidden;
+      border: 1px solid #dbe3eb;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .visualization figcaption {
+      padding: 0.75rem;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .visualization img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    @media (max-width: 700px) {
+      body {
+        padding: 1rem;
+      }
+
+      .inputs,
+      .visualizations {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Uji Deteksi Kendaraan Persimpangan</h1>
+
+    <form id="detection-form" class="panel">
+      <div class="inputs">
+        <label>
+          Utara
+          <input type="file" name="frame_utara" accept="image/*">
+        </label>
+        <label>
+          Selatan
+          <input type="file" name="frame_selatan" accept="image/*">
+        </label>
+        <label>
+          Timur
+          <input type="file" name="frame_timur" accept="image/*">
+        </label>
+        <label>
+          Barat
+          <input type="file" name="frame_barat" accept="image/*">
+        </label>
+      </div>
+      <button id="submit-button" type="submit">
+        Jalankan Deteksi Persimpangan
+      </button>
+      <div id="status" role="status" aria-live="polite"></div>
+    </form>
+
+    <section id="summary" class="panel" hidden>
+      <h2>Ringkasan Deteksi</h2>
+      <pre id="summary-output"></pre>
+    </section>
+
+    <section id="visualizations" class="visualizations" aria-live="polite"></section>
+  </main>
+
+  <script>
+    const form = document.getElementById("detection-form");
+    const button = document.getElementById("submit-button");
+    const status = document.getElementById("status");
+    const summary = document.getElementById("summary");
+    const summaryOutput = document.getElementById("summary-output");
+    const visualizations = document.getElementById("visualizations");
+    const endpoint = "http://127.0.0.1:8000/api/vision/detect-intersection";
+    const lanes = [
+      ["Utara", "frame_utara"],
+      ["Selatan", "frame_selatan"],
+      ["Timur", "frame_timur"],
+      ["Barat", "frame_barat"]
+    ];
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData();
+      let fileCount = 0;
+
+      for (const [, fieldName] of lanes) {
+        const file = form.elements[fieldName].files[0];
+        if (file) {
+          formData.append(fieldName, file);
+          fileCount += 1;
+        }
+      }
+
+      if (fileCount === 0) {
+        status.textContent = "Pilih minimal satu gambar terlebih dahulu.";
+        return;
+      }
+
+      button.disabled = true;
+      status.textContent = "Memproses gambar...";
+      summary.hidden = true;
+      visualizations.replaceChildren();
+
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          body: formData
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.detail || "Deteksi gagal.");
+        }
+
+        summaryOutput.textContent = JSON.stringify({
+          total: payload.total,
+          counts: payload.counts
+        }, null, 2);
+        summary.hidden = false;
+
+        for (const [lane, fieldName] of lanes) {
+          const visualization = payload.visualizations?.[lane];
+          if (!visualization) {
+            continue;
+          }
+
+          const figure = document.createElement("figure");
+          figure.className = "visualization";
+          const caption = document.createElement("figcaption");
+          caption.textContent = lane;
+          const image = document.createElement("img");
+          image.src = visualization;
+          image.alt = `Hasil deteksi lajur ${lane}`;
+          figure.append(caption, image);
+          visualizations.appendChild(figure);
+        }
+
+        status.textContent = `Deteksi selesai untuk ${fileCount} lajur.`;
+      } catch (error) {
+        status.textContent = `Gagal: ${error.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
