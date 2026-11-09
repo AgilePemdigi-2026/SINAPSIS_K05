@@ -19,6 +19,10 @@ class Settings:
     # tetap wajib login. Setelah halaman login selesai, set DASHBOARD_PUBLIC=false.
     DASHBOARD_PUBLIC = os.getenv("DASHBOARD_PUBLIC", "true").lower() == "true"
     SEED_DEMO_DATA = os.getenv("SEED_DEMO_DATA", "true").lower() == "true"
+    # Lupa password: belum ada email/SMS, jadi demo menampilkan token reset di respons API.
+    # Set false bila sudah ada kanal pengiriman (token tidak lagi dikembalikan ke browser).
+    EXPOSE_RESET_TOKEN = os.getenv("EXPOSE_RESET_TOKEN", "true").lower() == "true"
+    RESET_TOKEN_MINUTES = int(os.getenv("RESET_TOKEN_MINUTES", 15))
 
     # Jalur persimpangan (4 arah, sesuai CDM: Persimpangan 1-N Jalur)
     LANE_NAMES = ["Utara", "Selatan", "Timur", "Barat"]

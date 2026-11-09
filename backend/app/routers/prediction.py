@@ -31,5 +31,5 @@ def predict(id_persimpangan: int, db: Session = Depends(get_db), _=Depends(_both
     p = db.get(Persimpangan, id_persimpangan)
     if p is None:
         raise HTTPException(404, "Persimpangan tidak ditemukan.")
-    svc.hub.source_for(id_persimpangan)  # pastikan riwayat awal (CSV) terisi
+    svc.hub.source_for(id_persimpangan, [j.arah for j in sorted(p.jalur, key=lambda j: j.id_jalur)])  # pastikan riwayat awal (CSV) terisi
     return svc.prediction_payload(p)

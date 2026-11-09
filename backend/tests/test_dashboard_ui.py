@@ -2,7 +2,6 @@
 import pytest
 
 from app.core.config import settings
-from app.main import FRONTEND_DIR
 
 
 @pytest.fixture()
@@ -10,14 +9,18 @@ def public(monkeypatch):
     monkeypatch.setattr(settings, "DASHBOARD_PUBLIC", True)
 
 
-@pytest.mark.skipif(FRONTEND_DIR is None, reason="folder frontend tidak ada (jalankan dari repo lengkap)")
 def test_dashboard_page_and_assets_served(client):
     page = client.get("/dashboard")
     assert page.status_code == 200 and "text/html" in page.headers["content-type"]
     assert "Diagram skematik persimpangan aktif" in page.text and "Refresh Data" in page.text
     assert client.get("/static/dashboard.js").status_code == 200
     assert client.get("/static/dashboard.css").status_code == 200
-    assert client.get("/").json()["dashboard"] == "/dashboard"
+
+def test_root_and_login_serve_login_page(client):
+    for path in ("/", "/login"):
+        r = client.get(path)
+        assert r.status_code == 200 and "text/html" in r.headers["content-type"]
+        assert "executeLogin" in r.text
 
 
 def test_public_mode_opens_only_monitoring_and_prediction(client, public):
@@ -73,5 +76,6 @@ def test_critical_and_offline_states_reach_payload(client, public):
 def test_dashboard_page_explains_when_frontend_missing(client, monkeypatch):
     import app.main as main
     monkeypatch.setattr(main, "FRONTEND_DIR", None)
+    monkeypatch.setattr(main, "TEMPLATES_DIR", main.CURRENT_DIR / "tidak_ada")   # tanpa fallback template
     r = client.get("/dashboard")
     assert r.status_code == 404 and "frontend" in r.json()["detail"].lower()

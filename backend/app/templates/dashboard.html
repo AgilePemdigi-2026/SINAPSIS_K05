@@ -14,8 +14,8 @@
     </div>
     <nav class="nav" id="navbar" aria-label="Navigasi utama">
       <a href="/dashboard" class="active" aria-current="page">Dashboard</a>
-      <a id="navKelola" href="/admin/intersections/add" hidden>Kelola Sistem</a>
-      <a id="navDarurat" href="/emergency/request" hidden>Permintaan Darurat</a>
+      <a id="navKelola" href="/admin/intersections">Kelola Sistem</a>
+      <a id="navDarurat" href="/emergency/request">Permintaan Darurat</a>
     </nav>
     <div class="sysinfo">
       <span id="clock" class="clock">--</span>
@@ -70,7 +70,7 @@
           <div class="panel-head"><h2 id="listTitle">Status persimpangan</h2><span id="listCount" class="muted"></span></div>
           <div class="list-head"><span>Persimpangan</span><span>Status</span><span class="num">Kendaraan</span></div>
           <div id="statusList" class="status-list intersection-status-list"></div>
-          <p class="note">Kendaraan = jumlah pada siklus terakhir (4 jalur). Bilah = kepadatan jalur terpadat.</p>
+          <p class="note">Kendaraan = jumlah pada siklus terakhir (semua lengan). Bilah = kepadatan jalur terpadat.</p>
         </section>
 
         <section class="panel" aria-labelledby="predTitle">
