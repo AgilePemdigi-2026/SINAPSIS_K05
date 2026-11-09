@@ -32,3 +32,13 @@ Feature: Registrasi persimpangan baru (Kelola Sistem)
     Given saya login sebagai Petugas Lalu Lintas
     When saya mendaftarkan persimpangan "Simpang Terlarang" tanpa koordinat
     Then respons berstatus 403
+
+  Scenario: Menambah pertigaan dengan 3 lengan
+    When saya mendaftarkan persimpangan "Pertigaan Uji" dengan lengan "Utara,Timur,Barat"
+    Then respons berstatus 201
+    And persimpangan "Pertigaan Uji" memiliki 3 lengan di dashboard
+
+  Scenario: Persimpangan dengan 2 lengan ditolak karena bukan persimpangan
+    When saya mendaftarkan persimpangan "Ruas Lurus Uji" dengan lengan "Timur,Barat"
+    Then respons berstatus 422
+    And pesan galat adalah "Persimpangan minimal punya 3 lengan."

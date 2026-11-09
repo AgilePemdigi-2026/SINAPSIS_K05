@@ -31,6 +31,7 @@ class IntersectionCreate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     detektor_virtual: Optional[bool] = True
+    lengan: Optional[list[str]] = None  # None = 4 lengan; boleh 3-4 dari Utara/Selatan/Timur/Barat
 
 
 class ParameterUpdate(BaseModel):

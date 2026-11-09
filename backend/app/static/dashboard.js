@@ -190,6 +190,7 @@
       var row = el('button', 'row' + (s.id_persimpangan === state.selected ? ' selected' : ''));
       row.type = 'button';
       var name = el('span', 'name', s.nama_lokasi);
+      if (s.jumlah_lengan && s.jumlah_lengan < 4) name.appendChild(el('small', null, s.jumlah_lengan + ' lengan'));
       var mini = el('span', 'mini');
       var fill = el('i', s.status === 'Kritis' ? 'kritis' : (s.status === 'Padat' ? 'padat' : ''));
       fill.style.width = (s.densitas_maks_pct === null ? 0 : Math.max(3, s.densitas_maks_pct)) + '%';
@@ -229,26 +230,77 @@
                sig: { x: 294, y: 188, tx: 288, ty: 212, ta: 'end' }, tag: { x: 12, y: 150 } }
   };
 
-  function drawRoads(s) {
+  /* Bentuk jalan mengikuti lengan yang ada (2-4): lengan yang tidak ada ditutup dengan garis tepi. */
+  var ROAD = {
+    Utara:   { rect: [332, 0, 96, 232],   edges: [[332, 0, 332, 232], [428, 0, 428, 232]],   median: [380, 0, 380, 210],
+               close: [332, 232, 428, 232], zebra: function (k) { return [336 + k * 14, 218, 8, 14]; } },
+    Selatan: { rect: [332, 328, 96, 232], edges: [[332, 328, 332, 560], [428, 328, 428, 560]], median: [380, 350, 380, 560],
+               close: [332, 328, 428, 328], zebra: function (k) { return [336 + k * 14, 328, 8, 14]; } },
+    Timur:   { rect: [428, 232, 332, 96], edges: [[428, 232, 760, 232], [428, 328, 760, 328]], median: [450, 280, 760, 280],
+               close: [428, 232, 428, 328], zebra: function (k) { return [428, 236 + k * 14, 14, 8]; } },
+    Barat:   { rect: [0, 232, 332, 96],   edges: [[0, 232, 332, 232], [0, 328, 332, 328]],   median: [0, 280, 310, 280],
+               close: [332, 232, 332, 328], zebra: function (k) { return [318, 236 + k * 14, 14, 8]; } }
+  };
+  var ARM_NAMES = ['Utara', 'Selatan', 'Timur', 'Barat'];
+
+  /* Latar kota: blok bangunan di tiap sudut (trotoar 14 px dari tepi jalan). Pada pertigaan, dua blok di sisi
+     tanpa lengan digabung menjadi satu blok memanjang. Koordinat sudah final: x, y, lebar, tinggi. */
+  var NW = [0, 0, 318, 218], NE = [442, 0, 318, 218], SW = [0, 342, 318, 218], SE = [442, 342, 318, 218];
+  function blockLayout(arms) {
+    var has = function (a) { return arms.indexOf(a) >= 0; };
+    if (!has('Utara')) return [[0, 0, 760, 218], SW, SE];
+    if (!has('Selatan')) return [NW, NE, [0, 342, 760, 218]];
+    if (!has('Barat')) return [[0, 0, 318, 560], NE, SE];
+    if (!has('Timur')) return [NW, SW, [442, 0, 318, 560]];
+    return [NW, NE, SW, SE];
+  }
+  function drawBlocks(s, arms) {
+    var g = svg('g', { 'aria-hidden': 'true' });
+    var rects = blockLayout(arms);
+    rects.forEach(function (r) { g.appendChild(svg('rect', { class: 'block', x: r[0], y: r[1], width: r[2], height: r[3] })); });
+    rects.forEach(function (r) {
+      for (var cy = r[1] + 14; cy + 54 <= r[1] + r[3] - 6; cy += 70) {
+        for (var cx = r[0] + 14; cx + 70 <= r[0] + r[2] - 6; cx += 88) {
+          if ((cx * 7 + cy * 13) % 5 === 0) {  // beberapa petak dibiarkan sebagai taman
+            g.appendChild(svg('circle', { class: 'tree', cx: cx + 30, cy: cy + 26, r: 16 }));
+            g.appendChild(svg('circle', { class: 'tree2', cx: cx + 38, cy: cy + 30, r: 10 }));
+          } else {
+            g.appendChild(svg('rect', { class: 'bldg b' + ((cx + cy) % 3), x: cx, y: cy, width: 70 - (cx % 3) * 6, height: 54 - (cy % 4) * 3, rx: 4 }));
+          }
+        }
+      }
+    });
+    s.appendChild(g);
+  }
+  function drawCompass(s) {
+    var g = svg('g', { transform: 'translate(718,512)', 'aria-hidden': 'true' });
+    g.appendChild(svg('circle', { class: 'compass-ring', r: 22 }));
+    g.appendChild(svg('path', { class: 'compass-n', d: 'M0,-15 L6,5 L0,1 L-6,5 Z' }));
+    g.appendChild(svg('text', { class: 'compass-t', x: 0, y: -26, 'text-anchor': 'middle' }, 'U'));
+    s.appendChild(g);
+  }
+
+  function drawRoads(s, arms) {
     s.appendChild(svg('rect', { class: 'ground', x: 0, y: 0, width: 760, height: 560 }));
-    s.appendChild(svg('rect', { class: 'asphalt', x: 332, y: 0, width: 96, height: 560 }));
-    s.appendChild(svg('rect', { class: 'asphalt', x: 0, y: 232, width: 760, height: 96 }));
-    // garis tepi jalan (hanya pada lengan)
-    [[332, 0, 332, 232], [332, 328, 332, 560], [428, 0, 428, 232], [428, 328, 428, 560],
-     [0, 232, 332, 232], [428, 232, 760, 232], [0, 328, 332, 328], [428, 328, 760, 328]].forEach(function (l) {
-      s.appendChild(svg('line', { class: 'edge', x1: l[0], y1: l[1], x2: l[2], y2: l[3] }));
+    drawBlocks(s, arms);
+    ARM_NAMES.forEach(function (name) {
+      if (arms.indexOf(name) < 0) return;
+      var r = ROAD[name].rect;
+      s.appendChild(svg('rect', { class: 'asphalt', x: r[0], y: r[1], width: r[2], height: r[3] }));
     });
-    // marka tengah putus-putus
-    [[380, 0, 380, 210], [380, 350, 380, 560], [0, 280, 310, 280], [450, 280, 760, 280]].forEach(function (l) {
-      s.appendChild(svg('line', { class: 'median', x1: l[0], y1: l[1], x2: l[2], y2: l[3] }));
+    ARM_NAMES.forEach(function (name) {
+      var road = ROAD[name], present = arms.indexOf(name) >= 0;
+      if (!present) {  // sisi simpang tanpa lengan: tepi jalan tertutup
+        s.appendChild(svg('line', { class: 'edge', x1: road.close[0], y1: road.close[1], x2: road.close[2], y2: road.close[3] }));
+        return;
+      }
+      road.edges.forEach(function (l) { s.appendChild(svg('line', { class: 'edge', x1: l[0], y1: l[1], x2: l[2], y2: l[3] })); });
+      s.appendChild(svg('line', { class: 'median', x1: road.median[0], y1: road.median[1], x2: road.median[2], y2: road.median[3] }));
+      for (var k = 0; k < 7; k++) {  // zebra cross di tiap lengan
+        var z = road.zebra(k);
+        s.appendChild(svg('rect', { class: 'zebra', x: z[0], y: z[1], width: z[2], height: z[3] }));
+      }
     });
-    // zebra cross di tiap lengan
-    for (var k = 0; k < 7; k++) {
-      s.appendChild(svg('rect', { class: 'zebra', x: 336 + k * 14, y: 218, width: 8, height: 14 }));
-      s.appendChild(svg('rect', { class: 'zebra', x: 336 + k * 14, y: 328, width: 8, height: 14 }));
-      s.appendChild(svg('rect', { class: 'zebra', x: 428, y: 236 + k * 14, width: 14, height: 8 }));
-      s.appendChild(svg('rect', { class: 'zebra', x: 318, y: 236 + k * 14, width: 14, height: 8 }));
-    }
   }
 
   function drawSignal(g, cfg, lane) {
@@ -302,13 +354,15 @@
     }
     var cap = d.kapasitas_jalur || 20;
     if (item.data_usang) box.appendChild(el('div', 'banner banner-sensor', 'Sensor offline — menampilkan data terakhir yang tersedia.'));
-    var s = svg('svg', { viewBox: '0 0 760 560', role: 'img', 'aria-label': 'Diagram persimpangan ' + item.nama_lokasi });
-    drawRoads(s);
+    var arms = item.jalur.map(function (l) { return l.arah; });
+    var s = svg('svg', { viewBox: '0 0 760 560', role: 'img', 'aria-label': 'Diagram persimpangan ' + item.nama_lokasi + ', ' + (item.tipe || arms.length + ' lengan') });
+    drawRoads(s, arms);
     s.appendChild(svg('rect', { x: 332, y: 232, width: 96, height: 96, fill: '#4d5158' }));
+    drawCompass(s);
     s.appendChild(svg('text', { class: 'center-text', x: 380, y: 276 }, sentence(item.periode)));
     s.appendChild(svg('text', { class: 'center-text', x: 380, y: 293 }, 'Siklus ' + item.siklus));
 
-    var order = ['Utara', 'Selatan', 'Timur', 'Barat'];
+    var order = ARM_NAMES;
     item.jalur.forEach(function (lane) {
       var cfg = ARMS[lane.arah];
       if (!cfg) return;
@@ -342,7 +396,7 @@
     if (!it || !it.jalur.length) return;
     var greens = it.jalur.filter(function (l) { return l.sinyal === 'HIJAU'; })
       .map(function (l) { return l.arah + ' ' + l.durasi + ' dtk'; });
-    box.appendChild(metric('Total kendaraan', String(it.jumlah_kendaraan), '4 jalur, siklus terakhir',
+    box.appendChild(metric('Total kendaraan', String(it.jumlah_kendaraan), (it.tipe || it.jalur.length + ' lengan') + ', siklus terakhir',
       it.status === 'Kritis' ? { text: 'Macet' } : null));
     box.appendChild(metric('Jalur terpadat', it.jalur_terpadat.arah, it.jalur_terpadat.jumlah + ' kendaraan (' + it.densitas_maks_pct + '%)'));
     box.appendChild(metric('Lampu hijau', greens.length ? greens.join(', ') : 'Tidak ada', 'lengan lain menunggu'));

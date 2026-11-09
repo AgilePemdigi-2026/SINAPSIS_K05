@@ -138,3 +138,23 @@ tbody tr { cursor: default; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 .coord { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* lengan persimpangan (2-4) + pratinjau bentuk */
+.arms { border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px 4px; margin: 0 0 16px; background: var(--soft); }
+.arms legend { font-size: 13px; font-weight: 600; padding: 0 6px; }
+.arms-body { display: flex; gap: 14px; align-items: center; margin-bottom: 8px; }
+.arm-preview { width: 96px; height: 96px; flex: 0 0 auto; }
+.arm-preview .ap-ground { fill: #e9edf4; }
+.arm-preview .ap-road { fill: #4d5158; }
+.arm-preview .ap-center { fill: #3b3f46; }
+.arm-preview .ap-label { font-size: 11px; font-weight: 700; fill: #fff; }
+.arm-preview .ap-label.off { fill: #aab3c3; font-weight: 400; }
+.arms-pick { min-width: 0; }
+.arm-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.arm-chk { display: flex; align-items: center; gap: 6px; margin: 0; padding: 5px 9px; background: #fff; border: 1px solid var(--line); border-radius: 4px; font-size: 13px; cursor: pointer; }
+.arm-chk input { width: 16px; height: 16px; accent-color: var(--blue); }
+.arm-chk:focus-within { outline: 2px solid var(--gold); outline-offset: 1px; }
+.arm-type { margin: 8px 0 0; font-size: 13px; font-weight: 600; color: var(--navy-2); }
+.arm-detect { margin: 0 0 8px; font-size: 12px; color: var(--navy-2); background: #e6edf9; border-radius: 4px; padding: 6px 9px; }
+.link-btn { background: none; border: 0; padding: 0; color: var(--blue); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+@media (max-width: 560px) { .arms-body { flex-direction: column; align-items: flex-start; } }

@@ -16,6 +16,7 @@ from app.models import (
 )
 from app.ml.dataset import WINDOW
 from app.ml.predictor import get_predictor
+from app.services.arms import arm_type
 from app.services.neuromorphic import IntersectionEngine, Params
 from app.services.sensor_source import CsvSensorSource, SensorOffline, SensorSource, SyntheticSensorSource
 from app.core.timeutil import utcnow
@@ -58,16 +59,16 @@ class SensorHub:
     def reset(self):
         self.__init__()
 
-    def source_for(self, id_persimpangan: int) -> SensorSource:
+    def source_for(self, id_persimpangan: int, arms: list[str] | None = None) -> SensorSource:
         if id_persimpangan not in self.sources:
             # simpang pertama memutar dataset CSV; lainnya data sintetis
-            if id_persimpangan == settings.PILOT_INTERSECTION_ID:  # simpang pilot: putar ulang CSV, riwayat 24 jam pertama diisi lebih dulu
+            if id_persimpangan == settings.PILOT_INTERSECTION_ID and len(arms or settings.LANE_NAMES) == 4:  # simpang pilot: putar ulang CSV, riwayat 24 jam pertama diisi lebih dulu
                 src = CsvSensorSource(start=WINDOW)
                 self.history[id_persimpangan] = deque(
                     ([c / settings.MAX_VEHICLES for c in r["counts"]] for r in src.rows[:WINDOW]), maxlen=WINDOW)
                 self.last_ts[id_persimpangan] = datetime.strptime(src.rows[WINDOW - 1]["timestamp"], "%Y-%m-%d %H:%M:%S")
             else:
-                src = SyntheticSensorSource("NORMAL")
+                src = SyntheticSensorSource("NORMAL", arms=arms)
             self.sources[id_persimpangan] = src
         return self.sources[id_persimpangan]
 
@@ -85,8 +86,8 @@ class SensorHub:
         ts = self.last_ts[id_persimpangan] + timedelta(hours=1)
         return pred.name, pred.predict_next(np.array(h).T, ts)
 
-    def engine_for(self, id_persimpangan: int) -> IntersectionEngine:
-        return self.engines.setdefault(id_persimpangan, IntersectionEngine(len(settings.LANE_NAMES)))
+    def engine_for(self, id_persimpangan: int, n_lanes: int | None = None) -> IntersectionEngine:
+        return self.engines.setdefault(id_persimpangan, IntersectionEngine(n_lanes or len(settings.LANE_NAMES)))
 
 
 hub = SensorHub()
@@ -109,7 +110,8 @@ def run_cycle(db: Session, persimpangan: Persimpangan, counts: list[int] | None 
     Return None jika sensor offline (dan tandai persimpangan offline di hub).
     """
     ts = None
-    source = hub.source_for(persimpangan.id_persimpangan)  # juga menyiapkan riwayat awal simpang pilot
+    jalur = sorted(persimpangan.jalur, key=lambda j: j.id_jalur)
+    source = hub.source_for(persimpangan.id_persimpangan, [j.arah for j in jalur])  # juga menyiapkan riwayat awal simpang pilot
     if counts is None:
         try:
             reading = source.read()
@@ -122,10 +124,11 @@ def run_cycle(db: Session, persimpangan: Persimpangan, counts: list[int] | None 
     hub.offline.discard(persimpangan.id_persimpangan)
     hour = datetime.now().hour if hour is None else hour
 
-    jalur = sorted(persimpangan.jalur, key=lambda j: j.id_jalur)
+    if len(counts) != len(jalur):
+        raise ValueError(f"counts harus berisi {len(jalur)} nilai (satu per lengan)")
     hub.push(persimpangan.id_persimpangan, counts, ts)
     forecast = hub.predict(persimpangan.id_persimpangan)
-    result = hub.engine_for(persimpangan.id_persimpangan).step(
+    result = hub.engine_for(persimpangan.id_persimpangan, len(jalur)).step(
         counts, hour, load_params(db), _corridor_lanes(db, persimpangan),
         predicted=None if forecast is None else [float(x) for x in forecast[1]],
     )
@@ -197,6 +200,8 @@ def dashboard(db: Session) -> dict:
         ts = hub.last_ts.get(p.id_persimpangan)
         item = {
             "id_persimpangan": p.id_persimpangan, "nama_lokasi": p.nama_lokasi, "status": label,
+            "jumlah_lengan": len(p.jalur), "tipe": arm_type([j.arah for j in sorted(p.jalur, key=lambda j: j.id_jalur)]),
+            "arah_lengan": [j.arah for j in sorted(p.jalur, key=lambda j: j.id_jalur)],
             "jumlah_kendaraan": sum(counts), "sensor_offline": offline,
             "terakhir_diperbarui": latest.isoformat() if latest else None,
             "waktu_data": ts.isoformat() if ts else None,
@@ -226,7 +231,7 @@ def congestion_by_name(db: Session) -> dict[str, float]:
     out = {}
     for item in dashboard(db)["simpang"]:
         if item["jumlah_kendaraan"]:
-            out[item["nama_lokasi"]] = min(1.0, item["jumlah_kendaraan"] / (settings.MAX_VEHICLES * 4))
+            out[item["nama_lokasi"]] = min(1.0, item["jumlah_kendaraan"] / (settings.MAX_VEHICLES * max(1, item["jumlah_lengan"])))
     return out
 
 
