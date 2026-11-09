@@ -158,7 +158,7 @@ class YoloVehicleService:
 
     @staticmethod
     def _scalar_float(value: Any) -> float:
-        if hasattr(value, "item"):
+        if hasattr(value, "item") and callable(value.item):
             return float(value.item())
         return float(value[0] if hasattr(value, "__len__") else value)
 
