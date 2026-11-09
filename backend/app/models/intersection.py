@@ -1,4 +1,18 @@
-"""Entity (tabel) SINAPSIS — mengikuti CDM/PDM pada Data Mockup & Laporan (Bab VI)."""
+"""Entity GIS & Persimpangan — PDM Tabel 6.2, 6.3, 6.7, 6.8.
+
+Pemilik: Ryan (GIS & Persimpangan).
+
+Tabel:
+  - persimpangan  : titik persimpangan yang dipantau kamera/sensor
+  - jalur          : arah per persimpangan (Utara, Selatan, Timur, Barat)
+  - rutedarurat    : permintaan rute darurat dari petugas
+  - detail_rute    : junction N-N antara RuteDarurat dan Jalur
+  - deteksi        : telemetri deteksi kendaraan per jalur
+  - aktivitasneuron: log neuron LIF per jalur
+  - keputusansinyal: keputusan sinyal lampu per jalur
+  - simulasiskenario: log simulasi admin
+  - konfigurasisistem: parameter AI yang bisa diubah admin
+"""
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, true
@@ -8,50 +22,59 @@ from app.core.database import Base
 from app.core.timeutil import utcnow
 
 
-class Pengguna(Base):
-    __tablename__ = "pengguna"
-    id_pengguna: Mapped[int] = mapped_column(Integer, primary_key=True)
-    nama: Mapped[str] = mapped_column(String(100))
-    username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
-    password: Mapped[str] = mapped_column(String(255))  # hash bcrypt
-    role: Mapped[str] = mapped_column(String(30))
-    # Lupa password: yang disimpan hanya hash SHA-256 token (bukan token aslinya), berlaku 15 menit.
-    reset_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    reset_token_expires: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
-
 class Persimpangan(Base):
+    """Tabel `persimpangan` — PDM Tabel 6.2."""
+
     __tablename__ = "persimpangan"
-    id_persimpangan: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    id_persimpangan: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     nama_lokasi: Mapped[str] = mapped_column(String(100))
     deskripsi: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # F5 (GIS): koordinat titik persimpangan (derajat desimal, WGS84). Boleh kosong untuk data lama.
+
+    # Atribut GIS (F5 & GIS Wireframe Gambar 4.5)
+    kode_simpang: Mapped[str | None] = mapped_column(String(30), nullable=True, unique=True)
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
-    # Opsi form "Aktifkan Detektor Loop Virtual" (Hi-Fi 3.1.2)
     detektor_virtual: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
-    jalur: Mapped[list["Jalur"]] = relationship(back_populates="persimpangan", cascade="all, delete-orphan")
+    aktif_loop_virtual: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    status_sensor: Mapped[str] = mapped_column(String(30), default="ONLINE", server_default="ONLINE")
+
+    jalur: Mapped[list["Jalur"]] = relationship(
+        back_populates="persimpangan", cascade="all, delete-orphan"
+    )
 
 
 class Jalur(Base):
+    """Tabel `jalur` — PDM Tabel 6.3."""
+
     __tablename__ = "jalur"
-    id_jalur: Mapped[int] = mapped_column(Integer, primary_key=True)
-    id_persimpangan: Mapped[int] = mapped_column(ForeignKey("persimpangan.id_persimpangan"))
+
+    id_jalur: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id_persimpangan: Mapped[int] = mapped_column(
+        ForeignKey("persimpangan.id_persimpangan"), index=True
+    )
     arah: Mapped[str] = mapped_column(String(20))
+
     persimpangan: Mapped[Persimpangan] = relationship(back_populates="jalur")
 
 
 class Deteksi(Base):
+    """Tabel `deteksi` — telemetri deteksi kendaraan per jalur."""
+
     __tablename__ = "deteksi"
-    id_deteksi: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    id_deteksi: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id_jalur: Mapped[int] = mapped_column(ForeignKey("jalur.id_jalur"), index=True)
     waktu_deteksi: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     jumlah_kendaraan: Mapped[int] = mapped_column(Integer)
 
 
 class AktivitasNeuron(Base):
+    """Tabel `aktivitasneuron` — log neuron LIF per jalur."""
+
     __tablename__ = "aktivitasneuron"
-    id_aktivitas: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    id_aktivitas: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id_jalur: Mapped[int] = mapped_column(ForeignKey("jalur.id_jalur"), index=True)
     waktu: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     membrane_potential: Mapped[float] = mapped_column(Float)
@@ -60,8 +83,11 @@ class AktivitasNeuron(Base):
 
 
 class KeputusanSinyal(Base):
+    """Tabel `keputusansinyal` — keputusan sinyal lampu per jalur."""
+
     __tablename__ = "keputusansinyal"
-    id_keputusan: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    id_keputusan: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id_jalur: Mapped[int] = mapped_column(ForeignKey("jalur.id_jalur"), index=True)
     waktu_keputusan: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     warna_sinyal: Mapped[str] = mapped_column(String(20))
@@ -69,32 +95,43 @@ class KeputusanSinyal(Base):
 
 
 class RuteDarurat(Base):
+    """Tabel `rutedarurat` — PDM Tabel 6.7."""
+
     __tablename__ = "rutedarurat"
-    id_rute: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    id_rute: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id_pengguna: Mapped[int] = mapped_column(ForeignKey("pengguna.id_pengguna"))
+    lokasi_awal: Mapped[str | None] = mapped_column(String(100), nullable=True)
     tujuan: Mapped[str] = mapped_column(String(100))
     level_prioritas: Mapped[str] = mapped_column(String(30))
     status: Mapped[str] = mapped_column(String(20))  # Diajukan | Aktif | Dibatalkan | Selesai
     waktu_pengajuan: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     waktu_aktivasi: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     detail: Mapped[list["DetailRute"]] = relationship(
         back_populates="rute", cascade="all, delete-orphan", order_by="DetailRute.urutan"
     )
 
 
 class DetailRute(Base):
-    """Tabel junction N-N RuteDarurat <-> Jalur (di CDM disebut MELALUI / DETAIL_RUTE)."""
+    """Tabel junction N-N `detail_rute` — PDM Tabel 6.8."""
 
     __tablename__ = "detail_rute"
+
     id_rute: Mapped[int] = mapped_column(ForeignKey("rutedarurat.id_rute"), primary_key=True)
     id_jalur: Mapped[int] = mapped_column(ForeignKey("jalur.id_jalur"), primary_key=True)
     urutan: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     rute: Mapped[RuteDarurat] = relationship(back_populates="detail")
+    jalur: Mapped[Jalur] = relationship()
 
 
 class SimulasiSkenario(Base):
+    """Tabel `simulasiskenario` — log simulasi skenario admin."""
+
     __tablename__ = "simulasiskenario"
-    id_simulasi: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    id_simulasi: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id_pengguna: Mapped[int] = mapped_column(ForeignKey("pengguna.id_pengguna"))
     profil_skenario: Mapped[str] = mapped_column(String(30))
     jumlah_siklus: Mapped[int] = mapped_column(Integer)
@@ -105,8 +142,11 @@ class SimulasiSkenario(Base):
 
 
 class KonfigurasiSistem(Base):
+    """Tabel `konfigurasisistem` — konfigurasi parameter sistem oleh admin."""
+
     __tablename__ = "konfigurasisistem"
-    id_konfigurasi: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    id_konfigurasi: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id_pengguna: Mapped[int] = mapped_column(ForeignKey("pengguna.id_pengguna"))
     jenis_parameter: Mapped[str] = mapped_column(String(50), index=True)
     nilai: Mapped[str] = mapped_column(String(100))
