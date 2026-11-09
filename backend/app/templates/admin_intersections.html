@@ -39,8 +39,8 @@
     <div class="tabs" role="tablist" aria-label="Halaman Kelola Sistem">
       <a id="tabList" class="tab" href="/admin/intersections">Persimpangan Terdaftar</a>
       <a id="tabAdd" class="tab" href="/admin/intersections/add">Tambah Persimpangan</a>
-      <span class="tab disabled" title="Segera hadir">Parameter Sistem</span>
-      <span class="tab disabled" title="Segera hadir">Tambah Pengguna</span>
+      <a class="tab" href="/admin/parameters">Parameter Sistem</a>
+      <a class="tab" href="/admin/users/add">Tambah Pengguna</a>
     </div>
 
     <div id="denied" class="panel denied" hidden>
@@ -53,7 +53,9 @@
       <aside class="sidebar" aria-label="Modul Konfigurasi">
         <h2>Modul Konfigurasi</h2>
         <ul class="modules">
-          <li class="on">Registrasi Persimpangan</li>
+          <li class="on"><a href="/admin/intersections/add">Registrasi Persimpangan</a></li>
+          <li><a href="/admin/parameters">Parameter Sistem</a></li>
+          <li><a href="/admin/users">Manajemen Pengguna</a></li>
           <li class="off" title="Segera hadir">Konfigurasi Fase</li>
           <li class="off" title="Segera hadir">Sensor &amp; Kamera AI</li>
           <li class="off" title="Segera hadir">Kalibrasi Adaptif</li>

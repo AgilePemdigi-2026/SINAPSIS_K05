@@ -122,6 +122,18 @@ def render_admin_intersections_page():
     return FileResponse(page)
 
 
+@app.get("/admin/parameters", tags=["UI"])
+@app.get("/admin/users", tags=["UI"])
+@app.get("/admin/users/add", tags=["UI"])
+def render_admin_system_page():
+    """Kelola Sistem (F5): Parameter Sistem AI, daftar pengguna, dan form tambah pengguna.
+    Halaman statis; akses dibatasi di API (/api/admin/*, khusus Administrator)."""
+    page = TEMPLATES_DIR / "admin_system.html"
+    if not page.exists():
+        raise HTTPException(404, "File admin_system.html tidak ditemukan.")
+    return FileResponse(page)
+
+
 @app.get("/api/info", tags=["Umum"])
 def info():
     return {"app": "SINAPSIS", "status": "online"}
