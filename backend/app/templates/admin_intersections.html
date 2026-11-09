@@ -93,6 +93,25 @@
             </div>
             <p id="geoHint" class="hint">Isi koordinat atau klik titik pada peta di sebelah. Boleh dikosongkan dan dilengkapi nanti.</p>
 
+            <fieldset class="arms" aria-describedby="armsHint">
+              <legend>Lengan Persimpangan <span class="req" aria-hidden="true">*</span></legend>
+              <div class="arms-body">
+                <svg id="armPreview" class="arm-preview" viewBox="0 0 120 120" role="img" aria-label="Pratinjau bentuk persimpangan"></svg>
+                <div class="arms-pick">
+                  <div class="arm-checks">
+                    <label class="arm-chk"><input type="checkbox" name="lengan" value="Utara" checked><span>Utara</span></label>
+                    <label class="arm-chk"><input type="checkbox" name="lengan" value="Selatan" checked><span>Selatan</span></label>
+                    <label class="arm-chk"><input type="checkbox" name="lengan" value="Timur" checked><span>Timur</span></label>
+                    <label class="arm-chk"><input type="checkbox" name="lengan" value="Barat" checked><span>Barat</span></label>
+                  </div>
+                  <p id="armType" class="arm-type" aria-live="polite"></p>
+                </div>
+              </div>
+              <p id="armDetect" class="arm-detect" role="status" aria-live="polite" hidden></p>
+              <p id="armsHint" class="hint">Pilih lengan jalan yang ada: pertigaan (3) atau perempatan (4). Jumlah lengan menentukan bentuk diagram dan jumlah jalur yang dipantau. Peta mencoba mendeteksinya otomatis dari data jalan OpenStreetMap; hasilnya boleh Anda ubah.</p>
+              <p id="eArms" class="ferr" role="alert" hidden></p>
+            </fieldset>
+
             <div class="field">
               <label for="fDesk">Deskripsi &amp; Karakteristik Arus</label>
               <textarea id="fDesk" name="deskripsi" rows="4" maxlength="250"
@@ -117,7 +136,7 @@
             <div class="map-box"><div id="mapMini" class="map map-mini" role="application" aria-label="Peta interaktif lokasi persimpangan"></div></div>
             <p id="mapNoteAdd" class="map-note" role="status" hidden></p>
             <p class="legend">Klik peta untuk menaruh pin, lalu seret pin untuk menggeser. Gunakan tombol + / − atau scroll (setelah peta diklik) untuk zoom. Pin emas adalah titik yang sedang diisi; pin biru sudah terdaftar.</p>
-            <h3 class="sub">Sumber Data Lajur</h3>
+            <h3 class="sub">Sumber Data Lajur (per lengan)</h3>
             <ul id="laneSources" class="lanes"></ul>
             <p class="note">Versi ini memakai data simulasi (dataset lalu lintas atau data sintetis). Tidak ada kamera fisik yang perlu dipasangkan.</p>
           </section>
@@ -158,9 +177,9 @@
           <div class="table-wrap">
             <table id="tbl">
               <thead>
-                <tr><th>Nama Lokasi</th><th>Koordinat</th><th>Status Operasi</th><th class="num">Kendaraan</th><th>Detektor Virtual</th><th class="num">Jalur</th></tr>
+                <tr><th>Nama Lokasi</th><th>Koordinat</th><th>Status Operasi</th><th class="num">Kendaraan</th><th>Detektor Virtual</th><th>Bentuk</th><th class="num">Lengan</th></tr>
               </thead>
-              <tbody id="tblBody"><tr><td colspan="6" class="empty-cell">Memuat data...</td></tr></tbody>
+              <tbody id="tblBody"><tr><td colspan="7" class="empty-cell">Memuat data...</td></tr></tbody>
             </table>
           </div>
           <p id="dataNote" class="note"></p>
@@ -175,6 +194,7 @@
   </footer>
 
   <script src="/static/vendor/leaflet/leaflet.js"></script>
+  <script src="/static/arm_detect.js"></script>
   <script src="/static/admin_intersections.js"></script>
 </body>
 </html>

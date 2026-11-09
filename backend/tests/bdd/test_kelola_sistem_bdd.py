@@ -31,3 +31,15 @@ def cek_tercatat(client, headers, nama, lat, lon):
     items = client.get("/api/admin/intersections", headers=headers).json()
     item = next(i for i in items if i["nama_lokasi"] == nama)
     assert (item["latitude"], item["longitude"]) == (float(lat), float(lon))
+
+
+@when(parsers.re(r'saya mendaftarkan persimpangan "(?P<nama>.*)" dengan lengan "(?P<lengan>.*)"'), target_fixture="response")
+def daftar_dengan_lengan(client, headers, nama, lengan):
+    return client.post("/api/admin/intersections", headers=headers, json={
+        "nama_lokasi": nama, "lengan": [a for a in lengan.split(",") if a]})
+
+
+@then(parsers.parse('persimpangan "{nama}" memiliki {n:d} lengan di dashboard'))
+def cek_lengan(client, headers, nama, n):
+    item = next(s for s in client.get("/api/monitoring/dashboard", headers=headers).json()["simpang"] if s["nama_lokasi"] == nama)
+    assert item["jumlah_lengan"] == n and len(item["jalur"]) == n

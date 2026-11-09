@@ -232,7 +232,7 @@
     clear(body);
     $('tblCount').textContent = state.items.length + ' persimpangan';
     if (!state.items.length) {
-      var r0 = el('tr'); var c0 = el('td', 'empty-cell', 'Belum ada persimpangan terdaftar.'); c0.colSpan = 6;
+      var r0 = el('tr'); var c0 = el('td', 'empty-cell', 'Belum ada persimpangan terdaftar.'); c0.colSpan = 7;
       r0.appendChild(c0); body.appendChild(r0); return;
     }
     state.items.forEach(function (it) {
@@ -244,6 +244,7 @@
       var tdS = el('td'); tdS.appendChild(el('span', 'st ' + statusClass(st), st)); tr.appendChild(tdS);
       tr.appendChild(el('td', 'num', l && st !== 'Sensor Offline' && st !== 'Belum ada data' ? String(l.jumlah_kendaraan) : '--'));
       var tdD = el('td'); tdD.appendChild(el('span', 'chip' + (it.detektor_virtual ? '' : ' off'), it.detektor_virtual ? 'Aktif' : 'Nonaktif')); tr.appendChild(tdD);
+      tr.appendChild(el('td', null, it.tipe ? it.tipe.replace(/ \(\d lengan\)/, '') : '--'));
       tr.appendChild(el('td', 'num', String((it.jalur || []).length)));
       if (MODE === 'list') { tr.style.cursor = 'pointer'; tr.addEventListener('click', function () { select(id); }); }
       body.appendChild(tr);
@@ -263,7 +264,8 @@
     function row(k, v) { var d = el('div'); d.appendChild(el('dt', null, k)); d.appendChild(el('dd', null, v)); dl.appendChild(d); }
     row('Koordinat', coordText(it) || 'Belum diisi');
     row('Kendaraan', l && st !== 'Sensor Offline' && st !== 'Belum ada data' ? String(l.jumlah_kendaraan) : '--');
-    row('Jalur', (it.jalur || []).map(function (j) { return j.arah; }).join(', '));
+    row('Bentuk', it.tipe || '--');
+    row('Lengan', (it.jalur || []).map(function (j) { return j.arah; }).join(', '));
     row('Detektor virtual', it.detektor_virtual ? 'Aktif' : 'Nonaktif');
     box.appendChild(dl);
     if (it.deskripsi) box.appendChild(el('p', 'note', it.deskripsi));
@@ -383,6 +385,7 @@
     ['fNama', 'fLat', 'fLon', 'fDesk'].forEach(function (id, k) {
       if ([m.nama, m.lat, m.lon, m.desk][k]) errs.push(id);
     });
+    if (selectedArms().length < MIN_ARMS) { errs.push('armsFirst'); renderArms(); }
     return { errors: errs, nama: nama, lat: latRaw, lon: lonRaw };
   }
 
@@ -399,13 +402,90 @@
       ? 'Koordinat ini berada di luar wilayah Indonesia. Periksa apakah latitude dan longitude tertukar.'
       : 'Isi koordinat, klik titik pada peta, atau seret pin. Boleh dikosongkan dan dilengkapi nanti.';
     redrawMaps();
-    if (ok) ensureVisible(lat, lon);
+    if (ok) { ensureVisible(lat, lon); scheduleDetect(); }
+  }
+
+  /* ---------- lengan persimpangan (3-4) ---------- */
+  var armsTouched = false, detectSeq = 0, detectTimer = null, lastDetectKey = '';
+  var MIN_ARMS = 3;  // 2 lengan hanya ruas jalan biasa
+
+  function armBoxes() { return Array.prototype.slice.call(document.querySelectorAll('input[name="lengan"]')); }
+  function selectedArms() { return armBoxes().filter(function (b) { return b.checked; }).map(function (b) { return b.value; }); }
+  function armType(arms) {
+    if (arms.length >= 4) return 'Perempatan (4 lengan)';
+    if (arms.length === 3) return 'Pertigaan (3 lengan)';
+    return 'Pilih minimal ' + MIN_ARMS + ' lengan';
+  }
+
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function sv(tag, attrs) { var n = document.createElementNS(SVGNS, tag); Object.keys(attrs).forEach(function (k) { n.setAttribute(k, attrs[k]); }); return n; }
+  // Pratinjau: pusat 40..80, tiap lengan 40 px; lengan yang tidak dipilih digambar sebagai tepi tertutup
+  var ARM_RECT = { Utara: [40, 0, 40, 40], Selatan: [40, 80, 40, 40], Timur: [80, 40, 40, 40], Barat: [0, 40, 40, 40] };
+  var ARM_LABEL = { Utara: [60, 10, 'U'], Selatan: [60, 116, 'S'], Timur: [112, 64, 'T'], Barat: [8, 64, 'B'] };
+  function drawArmPreview(arms) {
+    var s = $('armPreview'); clear(s);
+    s.appendChild(sv('rect', { class: 'ap-ground', x: 0, y: 0, width: 120, height: 120, rx: 6 }));
+    LANES.forEach(function (a) {
+      var r = ARM_RECT[a], on = arms.indexOf(a) >= 0;
+      if (on) s.appendChild(sv('rect', { class: 'ap-road', x: r[0], y: r[1], width: r[2], height: r[3] }));
+      var l = ARM_LABEL[a];
+      var t = sv('text', { class: 'ap-label' + (on ? '' : ' off'), x: l[0], y: l[1], 'text-anchor': 'middle' }); t.textContent = l[2]; s.appendChild(t);
+    });
+    s.appendChild(sv('rect', { class: 'ap-center', x: 40, y: 40, width: 40, height: 40 }));
+  }
+
+  function renderArms() {
+    var arms = selectedArms();
+    drawArmPreview(arms);
+    $('armType').textContent = armType(arms) + (arms.length >= MIN_ARMS ? ' · ' + arms.join(', ') : '');
+    $('eArms').hidden = arms.length >= MIN_ARMS;
+    $('eArms').textContent = arms.length >= MIN_ARMS ? '' : 'Pilih minimal ' + MIN_ARMS + ' lengan: pertigaan (3) atau perempatan (4).';
+    renderLanes();
+  }
+  function setArms(list) {
+    armBoxes().forEach(function (b) { b.checked = list.indexOf(b.value) >= 0; });
+    renderArms();
+  }
+  function say(node, text, btnLabel, onBtn) {
+    node.hidden = !text; clear(node);
+    if (!text) return;
+    node.appendChild(document.createTextNode(text));
+    if (btnLabel) { var b = el('button', 'link-btn', btnLabel); b.type = 'button'; b.addEventListener('click', onBtn); node.appendChild(document.createTextNode(' ')); node.appendChild(b); }
+  }
+  function describeDetect(res) {
+    var parts = res.arms.map(function (a) { return res.names[a] ? a + ' (' + res.names[a] + ')' : a; });
+    return armType(res.arms) + ': ' + parts.join(', ');
+  }
+  function runDetect() {
+    var d = state.draft, box = $('armDetect');
+    if (!d || !window.SinapsisArms) return;
+    var key = d.lat.toFixed(5) + ',' + d.lon.toFixed(5);
+    if (key === lastDetectKey) return;
+    lastDetectKey = key;
+    var seq = ++detectSeq;
+    say(box, 'Mendeteksi lengan dari data jalan di sekitar titik...');
+    window.SinapsisArms.fetchArms(d.lat, d.lon).then(function (res) {
+      if (seq !== detectSeq) return;
+      if (!res.found) { say(box, 'Titik ini belum terdeteksi sebagai pertigaan/perempatan (mungkin hanya ruas jalan). Geser pin tepat ke tengah persimpangan atau pilih lengan secara manual.'); return; }
+      if (!armsTouched) { setArms(res.arms); say(box, 'Terdeteksi otomatis: ' + describeDetect(res) + '. Ubah bila tidak sesuai.'); return; }
+      var same = res.arms.join() === selectedArms().join();
+      say(box, same ? 'Pilihan Anda sesuai dengan data peta.' : 'Saran dari peta: ' + describeDetect(res) + '.',
+        same ? '' : 'Pakai saran', function () { armsTouched = false; setArms(res.arms); say(box, 'Memakai saran peta: ' + describeDetect(res) + '.'); });
+    }).catch(function () {
+      if (seq !== detectSeq) return;
+      lastDetectKey = '';
+      say(box, 'Deteksi otomatis tidak tersedia (tidak terhubung ke data jalan OpenStreetMap). Pilih lengan secara manual.');
+    });
+  }
+  function scheduleDetect() {
+    if (detectTimer) window.clearTimeout(detectTimer);
+    detectTimer = window.setTimeout(runDetect, 700);
   }
 
   function renderLanes() {
     var on = $('fLoop').checked, ul = $('laneSources');
     clear(ul);
-    LANES.forEach(function (n) {
+    selectedArms().forEach(function (n) {
       var li = el('li'); li.appendChild(el('span', null, 'Lajur ' + n));
       li.appendChild(el('span', on ? 'ok' : 'muted', on ? 'Aktif (simulasi)' : 'Nonaktif'));
       ul.appendChild(li);
@@ -416,20 +496,21 @@
     ev.preventDefault();
     showError('');
     var v = validate();
-    if (v.errors.length) { $(v.errors[0]).focus(); return; }          // tetap di halaman tambah
+    if (v.errors.length) { var first = v.errors[0] === 'armsFirst' ? armBoxes()[0] : $(v.errors[0]); first.focus(); return; }          // tetap di halaman tambah
     var btn = $('btnSave');
     btn.disabled = true; btn.textContent = 'Menyimpan...';
     request(API_LIST, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         nama_lokasi: v.nama, deskripsi: $('fDesk').value.trim() || null,
-        latitude: v.lat, longitude: v.lon, detektor_virtual: $('fLoop').checked
+        latitude: v.lat, longitude: v.lon, detektor_virtual: $('fLoop').checked, lengan: selectedArms()
       })
     }).then(function (res) {
       window.location.assign('/admin/intersections?berhasil=' + encodeURIComponent(res.id_persimpangan));
     }).catch(function (e) {
       btn.disabled = false; btn.textContent = 'Simpan Persimpangan';
       if (e.status === 403) { showDenied(e.message); return; }
+      if (e.status === 422 && /lengan/i.test(e.message)) { showError(e.message); renderArms(); return; }
       if (e.status === 422 && /nama lokasi/i.test(e.message)) { setErr('fNama', 'eNama', e.message); $('fNama').focus(); return; }
       showError(e.message || 'Gagal menyimpan persimpangan.');
     });
@@ -448,12 +529,12 @@
     return '"' + s.replace(/"/g, '""') + '"';
   }
   function exportCsv() {
-    var rows = [['Nama Lokasi', 'Latitude', 'Longitude', 'Status Operasi', 'Kendaraan', 'Detektor Virtual', 'Jumlah Jalur']];
+    var rows = [['Nama Lokasi', 'Latitude', 'Longitude', 'Status Operasi', 'Kendaraan', 'Detektor Virtual', 'Bentuk', 'Jumlah Lengan']];
     state.items.forEach(function (it) {
       var l = liveOf(it.id_persimpangan), st = statusText(it.id_persimpangan);
       rows.push([csvCell(it.nama_lokasi, true), csvCell(hasGeo(it) ? it.latitude : ''), csvCell(hasGeo(it) ? it.longitude : ''),
         csvCell(st, true), csvCell(l && st !== 'Sensor Offline' ? l.jumlah_kendaraan : ''),
-        csvCell(it.detektor_virtual ? 'Aktif' : 'Nonaktif', true), csvCell((it.jalur || []).length)]);
+        csvCell(it.detektor_virtual ? 'Aktif' : 'Nonaktif', true), csvCell(it.tipe || '', true), csvCell((it.jalur || []).length)]);
     });
     var head = rows.shift().map(function (h) { return csvCell(h, true); }).join(',');
     var csv = '﻿' + head + '\r\n' + rows.map(function (r) { return r.join(','); }).join('\r\n');
@@ -499,8 +580,9 @@
       $('fDesk').addEventListener('input', updateCounter);
       $('fNama').addEventListener('input', function () { if ($('fNama').value.trim()) setErr('fNama', 'eNama', ''); });
       $('fLoop').addEventListener('change', renderLanes);
+      armBoxes().forEach(function (b) { b.addEventListener('change', function () { armsTouched = true; renderArms(); }); });
       initMap();
-      updateCounter(); renderLanes();
+      updateCounter(); renderArms();
       prefillFromQuery();
       $('fNama').focus();
     } else {

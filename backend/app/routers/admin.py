@@ -14,6 +14,7 @@ from app.core.security import ROLE_ADMIN, ROLE_PETUGAS, PASS_RULE, hash_password
 from app.models import Jalur, KonfigurasiSistem, Pengguna, Persimpangan
 from app.schemas import IntersectionCreate, ParameterUpdate, SimulationRequest, UserCreate
 from app.services import monitoring_service as svc
+from app.services.arms import arm_type, normalize_arms
 from app.services.sensor_source import SyntheticSensorSource
 from app.services.simulation_service import run_simulation
 from app.core.timeutil import utcnow
@@ -29,6 +30,7 @@ DESKRIPSI_MAX = 250  # SRS 3.1.2 / Hi-Fi: textarea "Deskripsi & Karakteristik Ar
 def _intersection_dict(p: Persimpangan) -> dict:
     return {"id_persimpangan": p.id_persimpangan, "nama_lokasi": p.nama_lokasi, "deskripsi": p.deskripsi,
             "latitude": p.latitude, "longitude": p.longitude, "detektor_virtual": bool(p.detektor_virtual),
+            "jumlah_lengan": len(p.jalur), "tipe": arm_type([j.arah for j in p.jalur]),
             "jalur": [{"id_jalur": j.id_jalur, "arah": j.arah} for j in p.jalur]}
 
 
@@ -55,9 +57,13 @@ def add_intersection(req: IntersectionCreate, db: Session = Depends(get_db), _=D
         raise HTTPException(422, "Latitude harus berada di antara -90 dan 90.")
     if lon is not None and not (-180 <= lon <= 180 and math.isfinite(lon)):
         raise HTTPException(422, "Longitude harus berada di antara -180 dan 180.")
+    try:
+        lengan = normalize_arms(req.lengan)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
     p = Persimpangan(nama_lokasi=nama, deskripsi=deskripsi, latitude=lat, longitude=lon,
                      detektor_virtual=True if req.detektor_virtual is None else req.detektor_virtual,
-                     jalur=[Jalur(arah=a) for a in settings.LANE_NAMES])  # 1 persimpangan = 4 jalur
+                     jalur=[Jalur(arah=a) for a in lengan])  # 1 lengan = 1 jalur (3-4 lengan)
     db.add(p)
     db.commit()
     # Satu siklus simulasi langsung dijalankan agar simpang baru punya data (status, jumlah kendaraan, diagram)
@@ -69,7 +75,7 @@ def add_intersection(req: IntersectionCreate, db: Session = Depends(get_db), _=D
         logging.getLogger(__name__).exception("Siklus awal persimpangan %s gagal", p.id_persimpangan)
         data_awal = False
     return {"pesan": "Persimpangan baru berhasil ditambahkan!", "id_persimpangan": p.id_persimpangan,
-            "data_awal": data_awal, "redirect": "/admin/intersections"}
+            "data_awal": data_awal, "jumlah_lengan": len(lengan), "tipe": arm_type(lengan), "redirect": "/admin/intersections"}
 
 
 # ---- Parameter sistem AI ---------------------------------------------------
