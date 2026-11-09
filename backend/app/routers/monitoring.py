@@ -34,8 +34,9 @@ def run_one_cycle(req: ManualCycleRequest, db: Session = Depends(get_db), _=Depe
     p = db.get(Persimpangan, req.id_persimpangan)
     if p is None:
         raise HTTPException(404, "Persimpangan tidak ditemukan.")
-    if req.vehicle_counts is not None and len(req.vehicle_counts) != 4:
-        raise HTTPException(422, "vehicle_counts harus berisi tepat 4 nilai (Utara, Selatan, Timur, Barat).")
+    arms = [j.arah for j in sorted(p.jalur, key=lambda j: j.id_jalur)]
+    if req.vehicle_counts is not None and len(req.vehicle_counts) != len(arms):
+        raise HTTPException(422, f"vehicle_counts harus berisi tepat {len(arms)} nilai ({', '.join(arms)}).")
     result = svc.run_cycle(db, p, req.vehicle_counts, req.simulated_hour)
     if result is None:
         raise HTTPException(503, "Data pemantauan tidak tersedia untuk beberapa simpang.")

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SINAPSIS Kelola Sistem: Parameter dan Pengguna</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">SINAPSIS</span>
+      <span class="brand-sub">Dinas Perhubungan · Telemetri lalu lintas</span>
+    </div>
+    <nav class="nav" aria-label="Navigasi utama">
+      <a href="/dashboard">Dashboard</a>
+      <a class="active" href="/admin/intersections" aria-current="page">Kelola Sistem</a>
+      <a class="disabled" title="Segera hadir">Permintaan Darurat</a>
+    </nav>
+    <div class="sysinfo">
+      <span id="userName" class="clock">--</span>
+      <span id="sysState" class="sysstate">Memuat</span>
+    </div>
+  </header>
+
+  <div id="banners" aria-live="polite">
+    <div id="bannerError" class="banner banner-error" role="alert" hidden></div>
+    <div id="toast" class="toast" hidden></div>
+  </div>
+
+  <main class="page adm">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <span>Admin</span><span class="sep">/</span><span>Kelola Sistem</span><span class="sep">/</span>
+      <strong id="crumbLeaf">Parameter Sistem</strong>
+    </nav>
+
+    <div class="tabs" role="tablist" aria-label="Halaman Kelola Sistem">
+      <a class="tab" href="/admin/intersections">Persimpangan Terdaftar</a>
+      <a class="tab" href="/admin/intersections/add">Tambah Persimpangan</a>
+      <a id="tabParam" class="tab" href="/admin/parameters">Parameter Sistem</a>
+      <a id="tabUser" class="tab" href="/admin/users/add">Tambah Pengguna</a>
+    </div>
+
+    <div id="denied" class="panel denied" hidden>
+      <h2>Akses ditolak</h2>
+      <p id="deniedMsg">Halaman ini hanya untuk Administrator.</p>
+      <p><a class="btn-link" href="/dashboard">Kembali ke Dashboard</a></p>
+    </div>
+
+    <div id="content" class="adm-layout">
+      <aside class="sidebar" aria-label="Modul Konfigurasi">
+        <h2>Modul Konfigurasi</h2>
+        <ul class="modules">
+          <li><a href="/admin/intersections/add">Registrasi Persimpangan</a></li>
+          <li id="modParam"><a href="/admin/parameters">Parameter Sistem</a></li>
+          <li id="modUser"><a href="/admin/users">Manajemen Pengguna</a></li>
+          <li class="off" title="Segera hadir">Konfigurasi Fase</li>
+          <li class="off" title="Segera hadir">Sensor &amp; Kamera AI</li>
+          <li class="off" title="Segera hadir">Kalibrasi Adaptif</li>
+          <li class="off" title="Segera hadir">Log Aktivitas</li>
+        </ul>
+        <dl class="summary">
+          <div><dt>Mode algoritma</dt><dd>LIF adaptif</dd></div>
+          <div id="sumUsersRow"><dt>Pengguna terdaftar</dt><dd id="sumUsers">--</dd></div>
+        </dl>
+      </aside>
+
+      <div class="adm-main">
+        <!-- ===== Parameter Sistem ===== -->
+        <section id="paramSection" class="adm-main-inner" hidden>
+          <div id="paramOk" class="notice-ok" role="status" aria-live="polite" hidden>
+            <strong id="paramOkMsg"></strong>
+            <dl class="notice-meta">
+              <div><dt>Transaction ID</dt><dd id="paramOkTrx">--</dd></div>
+              <div><dt>Waktu</dt><dd id="paramOkTime">--</dd></div>
+              <div><dt>Status</dt><dd>TERSIMPAN</dd></div>
+            </dl>
+            <p id="paramOkNote" class="hint"></p>
+          </div>
+
+          <div class="adm-add">
+            <form id="formParam" class="panel" novalidate autocomplete="off" aria-labelledby="paramTitle">
+              <div class="panel-head"><h2 id="paramTitle">Konfigurasi Algoritma Adaptif &amp; Siklus Hijau</h2></div>
+              <div class="field">
+                <label for="fJenis">Jenis Parameter <span class="req" aria-hidden="true">*</span></label>
+                <select id="fJenis" name="jenis_parameter"></select>
+              </div>
+              <div class="field">
+                <label for="fNilai">Nilai Parameter <span id="unitLabel" class="muted"></span> <span class="req" aria-hidden="true">*</span></label>
+                <input id="fNilai" name="nilai" type="text" inputmode="decimal" aria-describedby="eNilai paramMeta">
+                <p id="eNilai" class="ferr" role="alert" hidden></p>
+                <p id="paramMeta" class="hint meta-line"></p>
+              </div>
+              <p id="paramNote" class="tech-note"></p>
+              <div class="actions">
+                <button id="btnParam" class="btn" type="submit">Update Parameter</button>
+                <button id="btnReset" class="btn-outline" type="button">Reset Nilai</button>
+              </div>
+            </form>
+
+            <section class="panel" aria-labelledby="histTitle">
+              <div class="panel-head"><h2 id="histTitle">Riwayat Perubahan</h2><span id="histCount" class="muted"></span></div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Perubahan</th><th class="num">Nilai</th><th>Waktu</th></tr></thead>
+                  <tbody id="histBody"><tr><td colspan="3" class="empty-cell">Memuat data...</td></tr></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel" aria-labelledby="activeTitle">
+            <div class="panel-head"><h2 id="activeTitle">Parameter Aktif</h2></div>
+            <div class="table-wrap">
+              <table id="tblParam">
+                <thead><tr><th>Parameter</th><th class="num">Nilai</th><th>Satuan</th><th class="num">Baseline</th><th>Rentang</th><th>Status</th><th><span class="sr">Aksi</span></th></tr></thead>
+                <tbody id="paramBody"><tr><td colspan="7" class="empty-cell">Memuat data...</td></tr></tbody>
+              </table>
+            </div>
+            <p class="note">Perubahan berlaku pada siklus pemantauan berikutnya dan tercatat dengan waktu serta akun pengubah.</p>
+          </section>
+        </section>
+
+        <!-- ===== Daftar pengguna ===== -->
+        <section id="usersSection" class="panel" hidden aria-labelledby="usersTitle">
+          <div class="panel-head">
+            <h2 id="usersTitle">Pengguna Terdaftar</h2>
+            <div class="head-actions">
+              <span id="usersCount" class="muted"></span>
+              <a class="btn" href="/admin/users/add">Tambah Pengguna</a>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="tblUsers">
+              <thead><tr><th>Nama</th><th>Username</th><th>Peran</th></tr></thead>
+              <tbody id="usersBody"><tr><td colspan="3" class="empty-cell">Memuat data...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== Tambah pengguna ===== -->
+        <section id="userAddSection" class="adm-add" hidden>
+          <form id="formUser" class="panel" novalidate autocomplete="off" aria-labelledby="userFormTitle">
+            <div class="panel-head"><h2 id="userFormTitle">Registrasi Akses Personel Baru</h2></div>
+            <div class="field">
+              <label for="uNama">Nama Lengkap &amp; Gelar Dinas <span class="req" aria-hidden="true">*</span></label>
+              <input id="uNama" name="nama" type="text" maxlength="100" placeholder="Contoh: Budi Santoso" aria-describedby="eUNama" required>
+              <p id="eUNama" class="ferr" role="alert" hidden></p>
+            </div>
+            <div class="field">
+              <label for="uUser">Username Operasional <span class="req" aria-hidden="true">*</span></label>
+              <input id="uUser" name="username" type="text" maxlength="50" placeholder="budisantoso_dishub" autocapitalize="none" aria-describedby="eUUser uSuggest" required>
+              <p id="eUUser" class="ferr" role="alert" hidden></p>
+              <p id="uSuggest" class="hint" hidden></p>
+            </div>
+            <div class="field">
+              <label for="uPass">Kata Sandi Sementara <span class="req" aria-hidden="true">*</span></label>
+              <div class="pw-wrap">
+                <input id="uPass" name="password" type="password" autocomplete="new-password" aria-describedby="ePass passHelp" required>
+                <button id="btnShowPass" class="btn-outline" type="button" aria-pressed="false">Tampilkan</button>
+              </div>
+              <p id="ePass" class="ferr" role="alert" hidden></p>
+              <p id="passHelp" class="hint">Minimal 8 karakter dengan huruf kapital dan angka.</p>
+            </div>
+            <div class="field">
+              <label for="uRole">Peran &amp; Otoritas Sistem <span class="req" aria-hidden="true">*</span></label>
+              <select id="uRole" name="role">
+                <option value="Petugas Lalu Lintas">Petugas Lalu Lintas</option>
+                <option value="Administrator">Administrator</option>
+              </select>
+            </div>
+            <div class="actions">
+              <button id="btnUser" class="btn" type="submit">Tambah Pengguna</button>
+              <button id="btnUserReset" class="btn-outline" type="button">Reset Isian</button>
+            </div>
+          </form>
+
+          <section class="panel" aria-labelledby="roleTitle">
+            <div class="panel-head"><h2 id="roleTitle">Hak Akses</h2></div>
+            <div id="roleInfo" class="info-box" aria-live="polite"></div>
+            <p class="hint">Kata sandi disimpan dalam bentuk hash (bcrypt) dan tidak pernah ditampilkan kembali. Pengguna disarankan mengganti kata sandi sementara setelah login pertama.</p>
+          </section>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="/static/admin_system.js"></script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SINAPSIS - Tambah Persimpangan</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+  <style>
+    .page-form { max-width: 680px; margin: 0 auto; padding: 24px; }
+    .page-form h1 { font-size: 20px; margin: 0 0 4px; }
+    .page-form .breadcrumb { font-size: 13px; color: #667085; margin-bottom: 24px; }
+    .page-form .breadcrumb a { color: #667085; text-decoration: underline; }
+    .card { background: #fff; border: 1px solid #dcdcd6; border-radius: 8px; padding: 24px; }
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; color: #1f2328; margin-bottom: 6px; }
+    .form-group input, .form-group textarea {
+      width: 100%; padding: 10px 12px; font: inherit; border: 1px solid #dcdcd6;
+      border-radius: 6px; background: #f6f6f3; color: #1f2328; outline: none;
+    }
+    .form-group input:focus, .form-group textarea:focus { border-color: #b3112b; background: #fff; }
+    .form-group textarea { min-height: 80px; resize: vertical; }
+    .form-row { display: flex; gap: 16px; }
+    .form-row .form-group { flex: 1; }
+    .checkbox-group { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
+    .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; accent-color: #b3112b; }
+    .checkbox-group label { font-size: 13px; font-weight: 600; color: #1f2328; margin: 0; }
+    .btn-row { display: flex; gap: 12px; margin-top: 8px; }
+    .btn-save {
+      padding: 10px 28px; font: inherit; font-weight: 700; background: #b3112b;
+      color: #fff; border: 0; border-radius: 6px; cursor: pointer;
+    }
+    .btn-save:hover { background: #8c0d22; }
+    .btn-save:disabled { opacity: .6; cursor: wait; }
+    .btn-cancel {
+      padding: 10px 28px; font: inherit; font-weight: 600; background: #f6f6f3;
+      color: #1f2328; border: 1px solid #dcdcd6; border-radius: 6px; cursor: pointer;
+      text-decoration: none; display: inline-flex; align-items: center;
+    }
+    .btn-cancel:hover { background: #ececE8; }
+    .alert { margin-top: 14px; padding: 10px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; text-align: center; }
+    .alert-success { background: #e8f3ec; border: 1px solid #b9dcc4; color: #2f7d4a; }
+    .alert-error { background: #fdf1f3; border: 1px solid #e7b3bc; color: #b3112b; }
+    .alert[hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">SINAPSIS</span>
+      <span class="brand-sub">Dinas Perhubungan · Kelola Sistem</span>
+    </div>
+    <nav class="nav" id="navbar" aria-label="Navigasi utama">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/admin/intersections" class="active" aria-current="page">Kelola Sistem</a>
+    </nav>
+    <div class="sysinfo">
+      <span id="userInfo" class="clock">--</span>
+      <a href="#" id="btnLogout" style="color:#fff;font-size:12px;text-decoration:underline;">Logout</a>
+    </div>
+  </header>
+
+  <div class="page-form">
+    <div class="breadcrumb">
+      <a href="/admin/intersections">Kelola Sistem</a> &rsaquo; Tambah Persimpangan
+    </div>
+    <h1>Tambah Persimpangan Baru</h1>
+    <p style="color:#667085;font-size:13px;margin:0 0 20px;">Masukkan data persimpangan yang akan dipantau oleh sistem SINAPSIS.</p>
+
+    <div class="card">
+      <form id="formAdd" autocomplete="off">
+        <div class="form-group">
+          <label for="namaLokasi">Nama Lokasi <span style="color:#b3112b;">*</span></label>
+          <input type="text" id="namaLokasi" name="nama_lokasi" placeholder="Contoh: Simpang Sudirman - Thamrin" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="latitude">Latitude</label>
+            <input type="number" id="latitude" name="latitude" placeholder="-6.2088" step="any">
+          </div>
+          <div class="form-group">
+            <label for="longitude">Longitude</label>
+            <input type="number" id="longitude" name="longitude" placeholder="106.8456" step="any">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="deskripsi">Deskripsi</label>
+          <textarea id="deskripsi" name="deskripsi" placeholder="Deskripsi opsional tentang persimpangan ini"></textarea>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="aktifLoop" name="aktif_loop_virtual" checked>
+          <label for="aktifLoop">Aktifkan Detektor Induktif Loop Virtual</label>
+        </div>
+
+        <div class="btn-row">
+          <button type="submit" id="btnSimpan" class="btn-save">Simpan</button>
+          <a href="/admin/intersections" class="btn-cancel">Batal</a>
+        </div>
+      </form>
+
+      <div id="alertMsg" class="alert" hidden></div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    var token = localStorage.getItem('access_token');
+    var role = localStorage.getItem('user_role');
+    if (!token || role !== 'Administrator') {
+      window.location.href = '/login';
+      return;
+    }
+
+    document.getElementById('userInfo').textContent = localStorage.getItem('user_nama') || 'Admin';
+
+    document.getElementById('btnLogout').addEventListener('click', function (e) {
+      e.preventDefault();
+      localStorage.clear();
+      window.location.href = '/login';
+    });
+
+    var form = document.getElementById('formAdd');
+    var alertMsg = document.getElementById('alertMsg');
+
+    function showAlert(msg, type) {
+      alertMsg.textContent = msg;
+      alertMsg.className = 'alert alert-' + type;
+      alertMsg.hidden = false;
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      var nama = document.getElementById('namaLokasi').value;
+      var lat = document.getElementById('latitude').value;
+      var lng = document.getElementById('longitude').value;
+      var desk = document.getElementById('deskripsi').value;
+      var loop = document.getElementById('aktifLoop').checked;
+
+      if (!nama.trim()) {
+        showAlert('Nama lokasi persimpangan wajib diisi!', 'error');
+        return;
+      }
+
+      var body = {
+        nama_lokasi: nama,
+        deskripsi: desk || null,
+        latitude: lat ? parseFloat(lat) : null,
+        longitude: lng ? parseFloat(lng) : null,
+        aktif_loop_virtual: loop
+      };
+
+      document.getElementById('btnSimpan').disabled = true;
+      alertMsg.hidden = true;
+
+      fetch('/api/intersections', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify(body)
+      })
+      .then(function (res) {
+        return res.json().then(function (b) { return { ok: res.ok, body: b }; });
+      })
+      .then(function (r) {
+        if (!r.ok) {
+          showAlert(r.body.detail || 'Gagal menambahkan persimpangan.', 'error');
+          return;
+        }
+        showAlert(r.body.pesan || 'Persimpangan baru berhasil ditambahkan!', 'success');
+        form.reset();
+        document.getElementById('aktifLoop').checked = true;
+      })
+      .catch(function (err) {
+        showAlert('Gagal terhubung ke server: ' + err.message, 'error');
+      })
+      .finally(function () {
+        document.getElementById('btnSimpan').disabled = false;
+      });
+    });
+  })();
+  </script>
+</body>
+</html>
+
