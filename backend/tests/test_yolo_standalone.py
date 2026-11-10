@@ -12,7 +12,9 @@ import sys
 import time
 from pathlib import Path
 
-import cv2
+import pytest
+
+cv2 = pytest.importorskip("cv2", reason="butuh opencv (skrip mandiri YOLO)")
 
 
 # Allow direct execution without installing the backend as a package.

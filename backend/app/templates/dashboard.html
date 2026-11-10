@@ -55,12 +55,15 @@
       <section class="panel hero" aria-labelledby="diagramTitle">
         <div class="panel-head">
           <h2 id="diagramTitle">Diagram skematik persimpangan aktif</h2>
-          <label class="pick">Persimpangan
-            <select id="selSimpang"></select>
-          </label>
+          <div class="head-tools">
+            <button id="animToggle" class="btn-outline sm" type="button" aria-pressed="true">Animasi: hidup</button>
+            <label class="pick">Persimpangan
+              <select id="selSimpang"></select>
+            </label>
+          </div>
         </div>
         <div id="diagram" class="diagram"></div>
-        <p class="legend">Satu ikon mobil mewakili sekitar 2–3 kendaraan (maksimal 8 ikon per lengan). Lajur masuk berada di sisi kiri jalan.
+        <p class="legend">Satu mobil atau motor di layar = satu kendaraan pada data siklus terakhir. Lajur masuk berada di sisi kiri jalan; kendaraan di lengan hijau dilepas satu per satu, lengan merah menunggu.
           Lampu menyala sesuai keputusan terakhir mesin LIF.</p>
         <div id="metrics" class="metrics"></div>
       </section>
@@ -112,6 +115,7 @@
     <span id="latency">Latensi API: --</span>
   </footer>
 
+  <script src="/static/traffic_anim.js"></script>
   <script src="/static/dashboard.js"></script>
   <script>
   /* RBAC Navigation - Ryan (GIS) */

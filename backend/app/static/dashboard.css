@@ -202,3 +202,11 @@ tr.stale td { color: var(--muted); }
 .compass-ring { fill: #fff; stroke: #c3cee3; stroke-width: 1.5; }
 .compass-n { fill: var(--navy); }
 .compass-t { font-size: 12px; font-weight: 700; fill: var(--navy); }
+
+/* animasi lalu lintas */
+.head-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn-outline.sm { font: inherit; font-size: 12px; font-weight: 600; padding: 4px 11px; color: var(--blue); background: #fff; border: 1px solid var(--blue); border-radius: 4px; cursor: pointer; }
+.btn-outline.sm[aria-pressed="false"] { color: var(--muted); border-color: var(--line); }
+.cars { pointer-events: all; }
+.car .glass, .glass { fill: rgba(15, 9, 69, .28); }
+.rider { fill: #0f0945; opacity: .75; }
