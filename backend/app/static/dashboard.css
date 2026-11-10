@@ -174,7 +174,7 @@ th.num { text-align: right; }
 td { padding: 9px 12px; border-bottom: 1px solid #e6ebf4; white-space: nowrap; }
 tr:hover td { background: #f4f7fd; }
 tr.crit td { background: #fdf1f3; color: var(--red-dark); font-weight: 600; }
-tr.stale td { color: var(--muted); } 
+tr.stale td { color: var(--muted); }
 
 .footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 12px 24px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); background: #fff; margin-top: 8px; }
 
@@ -189,7 +189,6 @@ tr.stale td { color: var(--muted); }
   .statusbar { padding: 8px 14px; }
 }
 
-<<<<<<< Updated upstream
 .status-list .row .name small { font-weight: 400; font-size: 11px; color: var(--muted); margin-left: 6px; }
 
 /* latar kota pada diagram persimpangan */
@@ -203,5 +202,11 @@ tr.stale td { color: var(--muted); }
 .compass-ring { fill: #fff; stroke: #c3cee3; stroke-width: 1.5; }
 .compass-n { fill: var(--navy); }
 .compass-t { font-size: 12px; font-weight: 700; fill: var(--navy); }
-=======
->>>>>>> Stashed changes
+
+/* animasi lalu lintas */
+.head-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn-outline.sm { font: inherit; font-size: 12px; font-weight: 600; padding: 4px 11px; color: var(--blue); background: #fff; border: 1px solid var(--blue); border-radius: 4px; cursor: pointer; }
+.btn-outline.sm[aria-pressed="false"] { color: var(--muted); border-color: var(--line); }
+.cars { pointer-events: all; }
+.car .glass, .glass { fill: rgba(15, 9, 69, .28); }
+.rider { fill: #0f0945; opacity: .75; }

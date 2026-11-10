@@ -82,7 +82,7 @@ class AktivitasNeuron(Base):
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
 
 
-class Keputusansinyal(Base):
+class KeputusanSinyal(Base):
     """Tabel `keputusansinyal` — PDM Tabel 6.6 (Hasil keputusan durasi & warna sinyal AI)."""
 
     __tablename__ = "keputusansinyal"
