@@ -8,7 +8,6 @@
   var BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
   // Ambang tampilan (mengikuti backend: Padat >= 50% kapasitas jalur, Kritis >= 85%)
   var PADAT_PCT = 50, KRITIS_PCT = 85;
-  var VEH_PER_ICON = 2.5, MAX_ICONS = 8;
 
   var state = { data: null, selected: null, busy: false, timer: null, toastTimer: null };
 
@@ -214,19 +213,14 @@
   /* ---------- diagram persimpangan (SVG) ----------
      Lalu lintas Indonesia berjalan di sisi kiri, sehingga lajur masuk tiap lengan:
      Utara = sisi timur jalan, Selatan = sisi barat, Timur = sisi selatan, Barat = sisi utara. */
-  var CAR_COLORS = ['#f3f3ef', '#dcdcd7', '#b9c4d0', '#e7d8a2', '#cdbcbc', '#c3d0c2'];
   var ARMS = {
-    Utara:   { queue: function (i) { return { x: 399, y: 192 - i * 20, width: 10, height: 16 }; },
-               stop: { x: 380, y: 212, width: 48, height: 4 },
+    Utara:   { stop: { x: 380, y: 212, width: 48, height: 4 },
                sig: { x: 438, y: 166, tx: 462, ty: 190, ta: 'start' }, tag: { x: 448, y: 10 } },
-    Selatan: { queue: function (i) { return { x: 351, y: 354 + i * 20, width: 10, height: 16 }; },
-               stop: { x: 332, y: 344, width: 48, height: 4 },
+    Selatan: { stop: { x: 332, y: 344, width: 48, height: 4 },
                sig: { x: 304, y: 356, tx: 298, ty: 380, ta: 'end' }, tag: { x: 112, y: 482 } },
-    Timur:   { queue: function (i) { return { x: 454 + i * 20, y: 299, width: 16, height: 10 }; },
-               stop: { x: 446, y: 280, width: 4, height: 48 },
+    Timur:   { stop: { x: 446, y: 280, width: 4, height: 48 },
                sig: { x: 452, y: 336, tx: 476, ty: 360, ta: 'start' }, tag: { x: 548, y: 346 } },
-    Barat:   { queue: function (i) { return { x: 292 - i * 20, y: 251, width: 16, height: 10 }; },
-               stop: { x: 312, y: 232, width: 4, height: 48 },
+    Barat:   { stop: { x: 312, y: 232, width: 4, height: 48 },
                sig: { x: 294, y: 188, tx: 288, ty: 212, ta: 'end' }, tag: { x: 12, y: 150 } }
   };
 
@@ -314,15 +308,6 @@
     g.appendChild(svg('text', { class: 'sig-text', x: cfg.sig.tx, y: cfg.sig.ty, 'text-anchor': cfg.sig.ta }, green ? lane.durasi + ' dtk' : 'Merah'));
   }
 
-  function drawQueue(g, cfg, lane, armIndex) {
-    var n = lane.jumlah_kendaraan;
-    var icons = n <= 0 ? 0 : Math.max(1, Math.min(MAX_ICONS, Math.round(n / VEH_PER_ICON)));
-    for (var i = 0; i < icons; i++) {
-      var r = cfg.queue(i);
-      g.appendChild(svg('rect', { class: 'car', x: r.x, y: r.y, width: r.width, height: r.height, rx: 2.5,
-        fill: CAR_COLORS[(i * 2 + armIndex) % CAR_COLORS.length] }));
-    }
-  }
 
   function drawTag(g, cfg, lane, cap) {
     var p = cfg.tag, pct = lane.densitas_pct;
@@ -362,7 +347,7 @@
     s.appendChild(svg('text', { class: 'center-text', x: 380, y: 276 }, sentence(item.periode)));
     s.appendChild(svg('text', { class: 'center-text', x: 380, y: 293 }, 'Siklus ' + item.siklus));
 
-    var order = ARM_NAMES;
+    var layers = {};
     item.jalur.forEach(function (lane) {
       var cfg = ARMS[lane.arah];
       if (!cfg) return;
@@ -371,12 +356,83 @@
         (lane.sinyal === 'HIJAU' ? 'Lampu hijau ' + lane.durasi + ' dtk' : 'Lampu merah, jatah hijau berikutnya ' + lane.durasi + ' dtk') +
         (lane.spike ? '. Neuron spike' : '') + '. ' + lane.alasan));
       [cfg.stop].forEach(function (r) { g.appendChild(svg('rect', { class: 'stop', x: r.x, y: r.y, width: r.width, height: r.height })); });
-      drawQueue(g, cfg, lane, order.indexOf(lane.arah));
+      layers[lane.arah] = svg('g', { class: 'cars' });  // kendaraan (animasi) milik lengan ini
+      g.appendChild(layers[lane.arah]);
       drawSignal(g, cfg, lane);
       drawTag(g, cfg, lane, cap);
       s.appendChild(g);
     });
     box.appendChild(s);
+    syncTraffic(item, arms, layers, s);
+  }
+
+  /* ---------- animasi lalu lintas (logika di traffic_anim.js) ---------- */
+  var traffic = { sim: null, key: '', fresh: true, layers: {}, nodes: {}, root: null, raf: 0, last: 0 };
+
+  function animEnabled() {
+    var saved = null;
+    try { saved = window.localStorage.getItem('sinapsis_anim'); } catch (e) { saved = null; }
+    if (saved === 'on') return true;
+    if (saved === 'off') return false;
+    return !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  function paintAnimToggle() {
+    var b = $('animToggle'), on = animEnabled();
+    b.setAttribute('aria-pressed', String(on));
+    b.textContent = on ? 'Animasi: hidup' : 'Animasi: mati';
+  }
+
+  function carNode(c) {
+    var g = svg('g', {});
+    var w = c.w, l = c.len;
+    g.appendChild(svg('rect', { class: 'car', x: -w / 2, y: -l / 2, width: w, height: l, rx: c.kind === 'motor' ? 2 : 2.5, fill: c.color }));
+    if (c.kind === 'motor') g.appendChild(svg('circle', { class: 'rider', cx: 0, cy: 0, r: 2.4 }));
+    else g.appendChild(svg('rect', { class: 'glass', x: -w / 2 + 1.5, y: -l / 2 + 2, width: w - 3, height: Math.max(3, l * 0.26), rx: 1 }));
+    return g;
+  }
+  function paintCars() {
+    var sim = traffic.sim, alive = {};
+    sim.cars.forEach(function (c) {
+      alive[c.id] = true;
+      var n = traffic.nodes[c.id];
+      if (!n) {
+        var layer = traffic.layers[c.lane];
+        if (!layer) return;
+        n = traffic.nodes[c.id] = { el: carNode(c), kind: c.kind };
+        layer.appendChild(n.el);
+      }
+      n.el.setAttribute('transform', 'translate(' + c.x.toFixed(1) + ' ' + c.y.toFixed(1) + ') rotate(' + c.angle.toFixed(0) + ')');
+      n.el.setAttribute('opacity', c.alpha < 1 ? c.alpha.toFixed(2) : '1');
+      var body = n.el.firstChild;
+      if (body && Math.abs(Number(body.getAttribute('height')) - c.len) > 0.4) { body.setAttribute('height', c.len.toFixed(1)); body.setAttribute('y', (-c.len / 2).toFixed(1)); }
+    });
+    Object.keys(traffic.nodes).forEach(function (id) {
+      if (!alive[id]) { var n = traffic.nodes[id]; if (n.el.parentNode) n.el.parentNode.removeChild(n.el); delete traffic.nodes[id]; }
+    });
+  }
+  function frame(ts) {
+    traffic.raf = 0;
+    if (!traffic.sim || !traffic.root || !document.body.contains(traffic.root) || !animEnabled()) return;
+    var dt = traffic.last ? (ts - traffic.last) / 1000 : 0;
+    traffic.last = ts;
+    traffic.sim.step(dt);
+    paintCars();
+    traffic.raf = window.requestAnimationFrame(frame);
+  }
+  function syncTraffic(item, arms, layers, root) {
+    var T = window.SinapsisTraffic;
+    if (!T) return;
+    var key = item.id_persimpangan + ':' + arms.join();
+    if (!traffic.sim || traffic.key !== key) { traffic.sim = new T.Sim(arms); traffic.key = key; traffic.fresh = true; }
+    var data = {};
+    item.jalur.forEach(function (l) { data[l.arah] = { n: l.jumlah_kendaraan, green: l.sinyal === 'HIJAU' && !item.data_usang }; });
+    var on = animEnabled();
+    traffic.sim.update(data, traffic.fresh || !on);  // pertama kali / animasi mati: langsung sesuai data
+    traffic.fresh = false;
+    traffic.layers = layers; traffic.nodes = {}; traffic.root = root;  // DOM dibuat ulang tiap render
+    paintCars();
+    window.cancelAnimationFrame(traffic.raf); traffic.raf = 0; traffic.last = 0;
+    if (on) traffic.raf = window.requestAnimationFrame(frame);
   }
 
   function metric(k, v, sub, badge) {
@@ -518,6 +574,13 @@
 
   function init() {
     startClock();
+    paintAnimToggle();
+    $('animToggle').addEventListener('click', function () {
+      var next = animEnabled() ? 'off' : 'on';
+      try { window.localStorage.setItem('sinapsis_anim', next); } catch (e) { /* diabaikan */ }
+      paintAnimToggle();
+      if (state.data) renderDiagram(state.data);
+    });
     $('btnRefresh').addEventListener('click', function () { tick(true).then(schedule); });
     $('autoToggle').addEventListener('change', updateMode);
     $('autoInterval').addEventListener('change', schedule);
