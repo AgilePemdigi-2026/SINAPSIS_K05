@@ -174,7 +174,7 @@ th.num { text-align: right; }
 td { padding: 9px 12px; border-bottom: 1px solid #e6ebf4; white-space: nowrap; }
 tr:hover td { background: #f4f7fd; }
 tr.crit td { background: #fdf1f3; color: var(--red-dark); font-weight: 600; }
-tr.stale td { color: var(--muted); }
+tr.stale td { color: var(--muted); } 
 
 .footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 12px 24px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); background: #fff; margin-top: 8px; }
 
@@ -189,6 +189,7 @@ tr.stale td { color: var(--muted); }
   .statusbar { padding: 8px 14px; }
 }
 
+<<<<<<< Updated upstream
 .status-list .row .name small { font-weight: 400; font-size: 11px; color: var(--muted); margin-left: 6px; }
 
 /* latar kota pada diagram persimpangan */
@@ -202,3 +203,5 @@ tr.stale td { color: var(--muted); }
 .compass-ring { fill: #fff; stroke: #c3cee3; stroke-width: 1.5; }
 .compass-n { fill: var(--navy); }
 .compass-t { font-size: 12px; font-weight: 700; fill: var(--navy); }
+=======
+>>>>>>> Stashed changes
