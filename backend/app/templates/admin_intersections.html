@@ -1,202 +1,387 @@
 <!doctype html>
 <html lang="id">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SINAPSIS Kelola Sistem: Persimpangan</title>
-  <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="/static/dashboard.css">
-  <link rel="stylesheet" href="/static/admin.css">
-</head>
-<body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="logo">SINAPSIS</span>
-      <span class="brand-sub">Dinas Perhubungan · Telemetri lalu lintas</span>
-    </div>
-    <nav class="nav" aria-label="Navigasi utama">
-      <a href="/dashboard">Dashboard</a>
-      <a class="active" href="/admin/intersections" aria-current="page">Kelola Sistem</a>
-      <a class="disabled" title="Segera hadir">Permintaan Darurat</a>
-    </nav>
-    <div class="sysinfo">
-      <span id="userName" class="clock">--</span>
-      <span id="sysState" class="sysstate">Memuat</span>
-    </div>
-  </header>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SINAPSIS Kelola Sistem: Persimpangan</title>
+    <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="/static/dashboard.css" />
+    <link rel="stylesheet" href="/static/admin.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">SINAPSIS</span>
+        <span class="brand-sub">Dinas Perhubungan · Telemetri lalu lintas</span>
+      </div>
+      <nav class="nav" aria-label="Navigasi utama">
+        <a href="/dashboard">Dashboard</a>
+        <a class="active" href="/admin/intersections" aria-current="page"
+          >Kelola Sistem</a
+        >
+        <a class="disabled" title="Segera hadir">Permintaan Darurat</a>
+      </nav>
+      <div class="sysinfo">
+        <span id="userName" class="clock">--</span>
+        <span id="sysState" class="sysstate">Memuat</span>
+      </div>
+    </header>
 
-  <div id="banners" aria-live="polite">
-    <div id="bannerError" class="banner banner-error" role="alert" hidden></div>
-    <div id="toast" class="toast" hidden></div>
-  </div>
-
-  <main class="page adm">
-    <nav class="crumbs" aria-label="Breadcrumb">
-      <span>Admin</span><span class="sep">/</span><span>Kelola Sistem</span><span class="sep">/</span>
-      <strong id="crumbLeaf">Persimpangan Terdaftar</strong>
-    </nav>
-
-    <div class="tabs" role="tablist" aria-label="Halaman Kelola Sistem">
-      <a id="tabList" class="tab" href="/admin/intersections">Persimpangan Terdaftar</a>
-      <a id="tabAdd" class="tab" href="/admin/intersections/add">Tambah Persimpangan</a>
-      <a class="tab" href="/admin/parameters">Parameter Sistem</a>
-      <a class="tab" href="/admin/users/add">Tambah Pengguna</a>
+    <div id="banners" aria-live="polite">
+      <div
+        id="bannerError"
+        class="banner banner-error"
+        role="alert"
+        hidden
+      ></div>
+      <div id="toast" class="toast" hidden></div>
     </div>
 
-    <div id="denied" class="panel denied" hidden>
-      <h2>Akses ditolak</h2>
-      <p id="deniedMsg">Halaman ini hanya untuk Administrator.</p>
-      <p><a class="btn-link" href="/dashboard">Kembali ke Dashboard</a></p>
-    </div>
+    <main class="page adm">
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <span>Admin</span><span class="sep">/</span><span>Kelola Sistem</span
+        ><span class="sep">/</span>
+        <strong id="crumbLeaf">Persimpangan Terdaftar</strong>
+      </nav>
 
-    <div id="content" class="adm-layout">
-      <aside class="sidebar" aria-label="Modul Konfigurasi">
-        <h2>Modul Konfigurasi</h2>
-        <ul class="modules">
-          <li class="on"><a href="/admin/intersections/add">Registrasi Persimpangan</a></li>
-          <li><a href="/admin/parameters">Parameter Sistem</a></li>
-          <li><a href="/admin/users">Manajemen Pengguna</a></li>
-          <li class="off" title="Segera hadir">Konfigurasi Fase</li>
-          <li class="off" title="Segera hadir">Sensor &amp; Kamera AI</li>
-          <li class="off" title="Segera hadir">Kalibrasi Adaptif</li>
-          <li class="off" title="Segera hadir">Log Aktivitas</li>
-        </ul>
-        <dl class="summary">
-          <div><dt>Persimpangan terdaftar</dt><dd id="sumTotal">--</dd></div>
-          <div><dt>Sudah punya koordinat</dt><dd id="sumGeo">--</dd></div>
-          <div><dt>Sensor offline</dt><dd id="sumOff">--</dd></div>
-        </dl>
-      </aside>
+      <div class="tabs" role="tablist" aria-label="Halaman Kelola Sistem">
+        <a id="tabList" class="tab" href="/admin/intersections"
+          >Persimpangan Terdaftar</a
+        >
+        <a id="tabAdd" class="tab" href="/admin/intersections/add"
+          >Tambah Persimpangan</a
+        >
+        <a class="tab" href="/admin/parameters">Parameter Sistem</a>
+        <a class="tab" href="/admin/users/add">Tambah Pengguna</a>
+      </div>
 
-      <div class="adm-main">
-        <!-- Mode tambah: form + verifikasi geo-spasial -->
-        <section id="addSection" class="adm-add" hidden>
-          <form id="formAdd" class="panel" novalidate autocomplete="off" aria-labelledby="formTitle">
-            <div class="panel-head"><h2 id="formTitle">Registrasi Simpang Baru</h2></div>
+      <div id="denied" class="panel denied" hidden>
+        <h2>Akses ditolak</h2>
+        <p id="deniedMsg">Halaman ini hanya untuk Administrator.</p>
+        <p><a class="btn-link" href="/dashboard">Kembali ke Dashboard</a></p>
+      </div>
 
-            <div class="field">
-              <label for="fNama">Nama Lokasi / Identifikasi Jalan <span class="req" aria-hidden="true">*</span></label>
-              <input id="fNama" name="nama_lokasi" type="text" maxlength="100" placeholder="Contoh: Simpang Empat Gubeng"
-                     aria-describedby="eNama" required>
-              <p id="eNama" class="ferr" role="alert" hidden></p>
+      <div id="content" class="adm-layout">
+        <aside
+          class="sidebar sidebar-summary"
+          aria-label="Ringkasan persimpangan"
+        >
+          <h2>Modul Konfigurasi</h2>
+          <dl class="summary">
+            <div>
+              <dt>Persimpangan terdaftar</dt>
+              <dd id="sumTotal">5</dd>
             </div>
-
-            <div class="field-row">
-              <div class="field">
-                <label for="fLat">Latitude</label>
-                <input id="fLat" name="latitude" type="text" inputmode="decimal" placeholder="-7,265500" aria-describedby="eLat">
-                <p id="eLat" class="ferr" role="alert" hidden></p>
-              </div>
-              <div class="field">
-                <label for="fLon">Longitude</label>
-                <input id="fLon" name="longitude" type="text" inputmode="decimal" placeholder="112,752000" aria-describedby="eLon">
-                <p id="eLon" class="ferr" role="alert" hidden></p>
-              </div>
+            <div>
+              <dt>Sudah punya koordinat</dt>
+              <dd id="sumGeo">5 dari 5</dd>
             </div>
-            <p id="geoHint" class="hint">Isi koordinat atau klik titik pada peta di sebelah. Boleh dikosongkan dan dilengkapi nanti.</p>
+            <div>
+              <dt>Sensor offline</dt>
+              <dd id="sumOff">0</dd>
+            </div>
+          </dl>
+        </aside>
 
-            <fieldset class="arms" aria-describedby="armsHint">
-              <legend>Lengan Persimpangan <span class="req" aria-hidden="true">*</span></legend>
-              <div class="arms-body">
-                <svg id="armPreview" class="arm-preview" viewBox="0 0 120 120" role="img" aria-label="Pratinjau bentuk persimpangan"></svg>
-                <div class="arms-pick">
-                  <div class="arm-checks">
-                    <label class="arm-chk"><input type="checkbox" name="lengan" value="Utara" checked><span>Utara</span></label>
-                    <label class="arm-chk"><input type="checkbox" name="lengan" value="Selatan" checked><span>Selatan</span></label>
-                    <label class="arm-chk"><input type="checkbox" name="lengan" value="Timur" checked><span>Timur</span></label>
-                    <label class="arm-chk"><input type="checkbox" name="lengan" value="Barat" checked><span>Barat</span></label>
-                  </div>
-                  <p id="armType" class="arm-type" aria-live="polite"></p>
+        <div class="adm-main">
+          <!-- Mode tambah: form + verifikasi geo-spasial -->
+          <section id="addSection" class="adm-add" hidden>
+            <form
+              id="formAdd"
+              class="panel"
+              novalidate
+              autocomplete="off"
+              aria-labelledby="formTitle"
+            >
+              <div class="panel-head">
+                <h2 id="formTitle">Registrasi Simpang Baru</h2>
+              </div>
+
+              <div class="field">
+                <label for="fNama"
+                  >Nama Lokasi / Identifikasi Jalan
+                  <span class="req" aria-hidden="true">*</span></label
+                >
+                <input
+                  id="fNama"
+                  name="nama_lokasi"
+                  type="text"
+                  maxlength="100"
+                  placeholder="Contoh: Simpang Empat Gubeng"
+                  aria-describedby="eNama"
+                  required
+                />
+                <p id="eNama" class="ferr" role="alert" hidden></p>
+              </div>
+
+              <div class="field-row">
+                <div class="field">
+                  <label for="fLat">Latitude</label>
+                  <input
+                    id="fLat"
+                    name="latitude"
+                    type="text"
+                    inputmode="decimal"
+                    placeholder="-7,265500"
+                    aria-describedby="eLat"
+                  />
+                  <p id="eLat" class="ferr" role="alert" hidden></p>
+                </div>
+                <div class="field">
+                  <label for="fLon">Longitude</label>
+                  <input
+                    id="fLon"
+                    name="longitude"
+                    type="text"
+                    inputmode="decimal"
+                    placeholder="112,752000"
+                    aria-describedby="eLon"
+                  />
+                  <p id="eLon" class="ferr" role="alert" hidden></p>
                 </div>
               </div>
-              <p id="armDetect" class="arm-detect" role="status" aria-live="polite" hidden></p>
-              <p id="armsHint" class="hint">Pilih lengan jalan yang ada: pertigaan (3) atau perempatan (4). Jumlah lengan menentukan bentuk diagram dan jumlah jalur yang dipantau. Peta mencoba mendeteksinya otomatis dari data jalan OpenStreetMap; hasilnya boleh Anda ubah.</p>
-              <p id="eArms" class="ferr" role="alert" hidden></p>
-            </fieldset>
+              <p id="geoHint" class="hint">
+                Isi koordinat atau klik titik pada peta di sebelah. Boleh
+                dikosongkan dan dilengkapi nanti.
+              </p>
 
-            <div class="field">
-              <label for="fDesk">Deskripsi &amp; Karakteristik Arus</label>
-              <textarea id="fDesk" name="deskripsi" rows="4" maxlength="250"
-                        placeholder="Contoh: Persimpangan jalur utama arah timur-barat" aria-describedby="eDesk cDesk"></textarea>
-              <div class="counter-row"><p id="eDesk" class="ferr" role="alert" hidden></p><span id="cDesk" class="counter">0/250</span></div>
-            </div>
+              <fieldset class="arms" aria-describedby="armsHint">
+                <legend>
+                  Lengan Persimpangan
+                  <span class="req" aria-hidden="true">*</span>
+                </legend>
+                <div class="arms-body">
+                  <svg
+                    id="armPreview"
+                    class="arm-preview"
+                    viewBox="0 0 120 120"
+                    role="img"
+                    aria-label="Pratinjau bentuk persimpangan"
+                  ></svg>
+                  <div class="arms-pick">
+                    <div class="arm-checks">
+                      <label class="arm-chk"
+                        ><input
+                          type="checkbox"
+                          name="lengan"
+                          value="Utara"
+                          checked
+                        /><span>Utara</span></label
+                      >
+                      <label class="arm-chk"
+                        ><input
+                          type="checkbox"
+                          name="lengan"
+                          value="Selatan"
+                          checked
+                        /><span>Selatan</span></label
+                      >
+                      <label class="arm-chk"
+                        ><input
+                          type="checkbox"
+                          name="lengan"
+                          value="Timur"
+                          checked
+                        /><span>Timur</span></label
+                      >
+                      <label class="arm-chk"
+                        ><input
+                          type="checkbox"
+                          name="lengan"
+                          value="Barat"
+                          checked
+                        /><span>Barat</span></label
+                      >
+                    </div>
+                    <p id="armType" class="arm-type" aria-live="polite"></p>
+                  </div>
+                </div>
+                <p
+                  id="armDetect"
+                  class="arm-detect"
+                  role="status"
+                  aria-live="polite"
+                  hidden
+                ></p>
+                <p id="armsHint" class="hint">
+                  Pilih lengan jalan yang ada: pertigaan (3) atau perempatan
+                  (4). Jumlah lengan menentukan bentuk diagram dan jumlah jalur
+                  yang dipantau. Peta mencoba mendeteksinya otomatis dari data
+                  jalan OpenStreetMap; hasilnya boleh Anda ubah.
+                </p>
+                <p id="eArms" class="ferr" role="alert" hidden></p>
+              </fieldset>
 
-            <div class="toggle">
-              <input id="fLoop" name="detektor_virtual" type="checkbox" checked aria-describedby="loopHelp">
-              <label for="fLoop">Aktifkan Detektor Loop Virtual</label>
-              <p id="loopHelp" class="hint">Menghitung kendaraan yang melintasi garis maya pada tiap lajur dari sumber data (dataset atau video), tanpa sensor fisik di jalan.</p>
-            </div>
+              <section
+                class="vision-registration"
+                aria-labelledby="visionRegistrationTitle"
+              >
+                <h3 id="visionRegistrationTitle">
+                  Sumber Vision &amp; Feed Kamera AI
+                </h3>
+                <div
+                  id="registrationVisionSlots"
+                  class="registration-vision-slots"
+                ></div>
+              </section>
+            </form>
 
-            <div class="actions">
-              <button id="btnSave" class="btn" type="submit">Simpan Persimpangan</button>
-              <a class="btn-outline" href="/admin/intersections">Batal</a>
-            </div>
-          </form>
-
-          <section class="panel geo" aria-labelledby="geoTitle">
-            <div class="panel-head"><h2 id="geoTitle">Verifikasi Geo-spasial</h2><span id="geoReadout" class="muted">Belum ada titik</span></div>
-            <div class="map-box"><div id="mapMini" class="map map-mini" role="application" aria-label="Peta interaktif lokasi persimpangan"></div></div>
-            <p id="mapNoteAdd" class="map-note" role="status" hidden></p>
-            <p class="legend">Klik peta untuk menaruh pin, lalu seret pin untuk menggeser. Gunakan tombol + / − atau scroll (setelah peta diklik) untuk zoom. Pin emas adalah titik yang sedang diisi; pin biru sudah terdaftar.</p>
-            <h3 class="sub">Sumber Data Lajur (per lengan)</h3>
-            <ul id="laneSources" class="lanes"></ul>
-            <p class="note">Versi ini memakai data simulasi (dataset lalu lintas atau data sintetis). Tidak ada kamera fisik yang perlu dipasangkan.</p>
+            <section class="panel geo" aria-labelledby="geoTitle">
+              <div class="panel-head">
+                <h2 id="geoTitle">Verifikasi Geo-spasial</h2>
+                <span id="geoReadout" class="muted">Belum ada titik</span>
+              </div>
+              <div class="map-box">
+                <div
+                  id="mapMini"
+                  class="map map-mini"
+                  role="application"
+                  aria-label="Peta interaktif lokasi persimpangan"
+                ></div>
+              </div>
+              <div class="field geo-description">
+                <label for="fDesk">Deskripsi &amp; Karakteristik Arus</label>
+                <textarea
+                  id="fDesk"
+                  name="deskripsi"
+                  rows="4"
+                  maxlength="250"
+                  placeholder="Contoh: Persimpangan jalur utama arah timur-barat"
+                  aria-describedby="eDesk cDesk"
+                ></textarea>
+                <div class="counter-row">
+                  <p id="eDesk" class="ferr" role="alert" hidden></p>
+                  <span id="cDesk" class="counter">0/250</span>
+                </div>
+              </div>
+              <div class="toggle">
+                <input
+                  id="fLoop"
+                  name="detektor_virtual"
+                  form="formAdd"
+                  type="checkbox"
+                  checked
+                  aria-describedby="loopHelp"
+                />
+                <label for="fLoop">Aktifkan Detektor Loop Virtual</label>
+                <p id="loopHelp" class="hint">
+                  Menghitung kendaraan yang melintasi garis maya pada tiap lajur
+                  dari sumber data (dataset atau video), tanpa sensor fisik di
+                  jalan.
+                </p>
+              </div>
+              <div class="actions">
+                <button id="btnSave" class="btn" type="submit" form="formAdd">
+                  Simpan Persimpangan
+                </button>
+                <a class="btn-outline" href="/admin/intersections">Batal</a>
+              </div>
+              <p id="mapNoteAdd" class="map-note" role="status" hidden></p>
+              <p class="legend">
+                Klik peta untuk menaruh pin, lalu seret pin untuk menggeser.
+                Gunakan tombol + / − atau scroll (setelah peta diklik) untuk
+                zoom. Pin emas adalah titik yang sedang diisi; pin biru sudah
+                terdaftar.
+              </p>
+            </section>
           </section>
-        </section>
 
-        <!-- Mode daftar: peta jaringan -->
-        <section id="listSection" class="panel" hidden aria-labelledby="netTitle">
-          <div class="panel-head">
-            <h2 id="netTitle">Peta jaringan persimpangan</h2>
-            <div class="head-actions">
-              <button id="btnReload" class="btn-outline" type="button">Muat ulang</button>
-              <a class="btn" href="/admin/intersections/add">Tambah Persimpangan</a>
+          <!-- Mode daftar: peta jaringan -->
+          <section
+            id="listSection"
+            class="panel"
+            hidden
+            aria-labelledby="netTitle"
+          >
+            <div class="panel-head">
+              <h2 id="netTitle">Peta jaringan persimpangan</h2>
+              <div class="head-actions">
+                <button id="btnReload" class="btn-outline" type="button">
+                  Muat ulang
+                </button>
+                <a class="btn" href="/admin/intersections/add"
+                  >Tambah Persimpangan</a
+                >
+              </div>
             </div>
-          </div>
-          <div class="net-grid">
-            <div class="map-box"><div id="mapNet" class="map map-net" role="application" aria-label="Peta interaktif jaringan persimpangan terdaftar"></div></div>
-            <div id="detailCard" class="detail" aria-live="polite"></div>
-          </div>
-          <p id="mapNoteList" class="map-note" role="status" hidden></p>
-          <p class="legend">Klik pin untuk melihat detail. Klik titik kosong pada peta untuk mendaftarkan persimpangan baru di lokasi itu. Zoom dengan tombol + / − atau scroll (setelah peta diklik).</p>
-          <ul class="key-line" aria-label="Legenda status">
-            <li><i class="d q-lancar"></i>Lancar</li>
-            <li><i class="d q-padat"></i>Padat</li>
-            <li><i class="d q-kritis"></i>Kritis</li>
-            <li><i class="d q-off"></i>Sensor offline / belum ada data</li>
-          </ul>
-        </section>
+            <div class="net-grid">
+              <div class="map-box">
+                <div
+                  id="mapNet"
+                  class="map map-net"
+                  role="application"
+                  aria-label="Peta interaktif jaringan persimpangan terdaftar"
+                ></div>
+              </div>
+              <div class="detail-column">
+                <div id="detailCard" class="detail" aria-live="polite"></div>
+                <div
+                  id="vision-feeds-section"
+                  class="vision-feeds-section"
+                  style="max-height: 280px; overflow-y: auto"
+                  hidden
+                ></div>
+              </div>
+            </div>
 
-        <!-- Tabel terdaftar (kedua mode) -->
-        <section id="tableSection" class="panel" aria-labelledby="tblTitle">
-          <div class="panel-head">
-            <h2 id="tblTitle">Persimpangan Terdaftar</h2>
-            <div class="head-actions">
-              <span id="tblCount" class="muted"></span>
-              <button id="btnExport" class="btn-outline" type="button">Export Table</button>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table id="tbl">
-              <thead>
-                <tr><th>Nama Lokasi</th><th>Koordinat</th><th>Status Operasi</th><th class="num">Kendaraan</th><th>Detektor Virtual</th><th>Bentuk</th><th class="num">Lengan</th></tr>
-              </thead>
-              <tbody id="tblBody"><tr><td colspan="7" class="empty-cell">Memuat data...</td></tr></tbody>
-            </table>
-          </div>
-          <p id="dataNote" class="note"></p>
-        </section>
+            <!-- Tabel terdaftar berada langsung di bawah peta jaringan. -->
+            <section id="tableSection" class="panel" aria-labelledby="tblTitle">
+              <div class="panel-head">
+                <h2 id="tblTitle">Persimpangan Terdaftar</h2>
+                <div class="head-actions">
+                  <span id="tblCount" class="muted"></span>
+                  <button id="btnExport" class="btn-outline" type="button">
+                    Export Table
+                  </button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table id="tbl">
+                  <thead>
+                    <tr>
+                      <th>Nama Lokasi</th>
+                      <th>Koordinat</th>
+                      <th>Status Operasi</th>
+                      <th class="num">Kendaraan</th>
+                      <th>Detektor Virtual</th>
+                      <th>Bentuk</th>
+                      <th class="num">Lengan</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tblBody">
+                    <tr>
+                      <td colspan="7" class="empty-cell">Memuat data...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p id="dataNote" class="note"></p>
+            </section>
+
+            <p id="mapNoteList" class="map-note" role="status" hidden></p>
+            <p class="legend">
+              Klik pin untuk melihat detail. Klik titik kosong pada peta untuk
+              mendaftarkan persimpangan baru di lokasi itu. Zoom dengan tombol +
+              / − atau scroll (setelah peta diklik).
+            </p>
+            <ul class="key-line" aria-label="Legenda status">
+              <li><i class="d q-lancar"></i>Lancar</li>
+              <li><i class="d q-padat"></i>Padat</li>
+              <li><i class="d q-kritis"></i>Kritis</li>
+              <li><i class="d q-off"></i>Sensor offline / belum ada data</li>
+            </ul>
+          </section>
+        </div>
       </div>
-    </div>
-  </main>
+    </main>
 
-  <footer class="footer">
-    <span>SINAPSIS Kelompok 5 · Kelola Sistem (F5)</span>
-    <span>Data lalu lintas berasal dari simulasi, bukan sensor langsung</span>
-  </footer>
+    <footer class="footer">
+      <span>SINAPSIS Kelompok 5 · Kelola Sistem (F5)</span>
+      <span>Data lalu lintas berasal dari simulasi, bukan sensor langsung</span>
+    </footer>
 
-  <script src="/static/vendor/leaflet/leaflet.js"></script>
-  <script src="/static/arm_detect.js"></script>
-  <script src="/static/admin_intersections.js"></script>
-</body>
+    <script src="/static/vendor/leaflet/leaflet.js"></script>
+    <script src="/static/arm_detect.js"></script>
+    <script src="/static/admin_intersections.js"></script>
+  </body>
 </html>

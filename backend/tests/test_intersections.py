@@ -28,6 +28,48 @@ def test_add_intersection_without_coordinates_defaults(client, admin):
     assert item["latitude"] is None and item["longitude"] is None and item["detektor_virtual"] is True
 
 
+def test_registration_vision_payload_persists_preview_and_initial_count(client, admin, monkeypatch):
+    from app.routers import admin as admin_router
+
+    preview = "data:image/jpeg;base64,ZmFrZS1wcmV2aWV3"
+    monkeypatch.setattr(
+        admin_router,
+        "_analyze_registration_feeds",
+        lambda feeds, lanes: {"Utara": {"count": 3, "preview": preview}},
+    )
+    response = client.post(URL, headers=admin, json={
+        "nama_lokasi": "Simpang Vision",
+        "bentuk": "Pertigaan (3 lengan)",
+        "jumlah_lengan": 3,
+        "lengan": ["Utara", "Selatan", "Timur"],
+        "vision_feeds": {"Utara": "data:image/jpeg;base64,raw"},
+    })
+    assert response.status_code == 201
+    item = _by_name(client, admin, "Simpang Vision")
+    north = next(lane for lane in item["jalur"] if lane["arah"] == "Utara")
+    assert north["vision_preview"] == preview
+
+    dashboard = client.get("/api/monitoring/dashboard", headers=admin).json()
+    created = next(item for item in dashboard["simpang"] if item["nama_lokasi"] == "Simpang Vision")
+    assert next(lane for lane in created["jalur"] if lane["arah"] == "Utara")["jumlah_kendaraan"] == 3
+
+
+def test_add_intersection_form_payload_creates_requested_three_lanes(client, admin):
+    response = client.post(URL, headers=admin, json={
+        "nama_lokasi": "Pertigaan Form",
+        "latitude": -7.2655,
+        "longitude": 112.752,
+        "deskripsi": "Dibuat dari payload form",
+        "bentuk": "Pertigaan (3 lengan)",
+        "jumlah_lengan": 3,
+        "lengan": ["Selatan", "Timur", "Barat"],
+    })
+    assert response.status_code == 201
+    item = _by_name(client, admin, "Pertigaan Form")
+    assert item["jumlah_lengan"] == 3
+    assert [lane["arah"] for lane in item["jalur"]] == ["Selatan", "Timur", "Barat"]
+
+
 @pytest.mark.parametrize("payload,pesan", [
     ({"latitude": -7.2}, "Latitude dan longitude harus diisi berpasangan."),
     ({"longitude": 112.7}, "Latitude dan longitude harus diisi berpasangan."),
@@ -87,7 +129,7 @@ def test_ensure_schema_upgrades_old_database(tmp_path, monkeypatch):
     database.ensure_schema()
     database.ensure_schema()  # idempoten
     cols = {c["name"] for c in inspect(eng).get_columns("persimpangan")}
-    assert {"latitude", "longitude", "detektor_virtual"} <= cols
+    assert {"kode_simpang", "latitude", "longitude", "detektor_virtual", "aktif_loop_virtual", "status_sensor"} <= cols
     assert {"reset_token", "reset_token_expires"} <= {c["name"] for c in inspect(eng).get_columns("pengguna")}
     with eng.connect() as c:
         row = c.execute(text("SELECT nama_lokasi, latitude, detektor_virtual FROM persimpangan")).one()

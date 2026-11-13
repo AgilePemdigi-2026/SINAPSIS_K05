@@ -148,6 +148,29 @@ def run_cycle(db: Session, persimpangan: Persimpangan, counts: list[int] | None 
     return result
 
 
+def record_vision_detection(db: Session, persimpangan: Persimpangan, lane_name: str, vehicle_count: int) -> dict:
+    """Persist one YOLO lane count and run the LIF controller for the intersection."""
+    jalur = sorted(persimpangan.jalur, key=lambda lane: lane.id_jalur)
+    lane_index = next((index for index, lane in enumerate(jalur) if lane.arah == lane_name), None)
+    if lane_index is None:
+        raise ValueError(f"Lajur tidak ditemukan pada persimpangan: {lane_name}")
+
+    counts = []
+    for lane in jalur:
+        latest = db.scalar(
+            select(Deteksi.jumlah_kendaraan)
+            .where(Deteksi.id_jalur == lane.id_jalur)
+            .order_by(Deteksi.waktu_deteksi.desc(), Deteksi.id_deteksi.desc())
+            .limit(1)
+        )
+        counts.append(int(latest or 0))
+    counts[lane_index] = max(0, int(vehicle_count))
+    result = run_cycle(db, persimpangan, counts=counts)
+    if result is None:
+        raise RuntimeError("Siklus LIF gagal dijalankan setelah deteksi vision.")
+    return result
+
+
 def status_label(max_count: int) -> str:
     ratio = max_count / settings.MAX_VEHICLES
     if ratio >= settings.EMERGENCY_RATIO:
@@ -203,6 +226,12 @@ def dashboard(db: Session) -> dict:
             "jumlah_lengan": len(p.jalur), "tipe": arm_type([j.arah for j in sorted(p.jalur, key=lambda j: j.id_jalur)]),
             "arah_lengan": [j.arah for j in sorted(p.jalur, key=lambda j: j.id_jalur)],
             "jumlah_kendaraan": sum(counts), "sensor_offline": offline,
+            "vision_feeds": [{
+                "arah": arah,
+                "preview": next((lane.vision_preview for lane in p.jalur if lane.arah == arah), None),
+            } for arah in settings.LANE_NAMES],
+            "snapshots": {arah: next((lane.vision_preview for lane in p.jalur if lane.arah == arah), None)
+                          for arah in settings.LANE_NAMES},
             "terakhir_diperbarui": latest.isoformat() if latest else None,
             "waktu_data": ts.isoformat() if ts else None,
         }

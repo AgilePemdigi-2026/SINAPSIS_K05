@@ -1,4 +1,5 @@
 """Fitur Kelola Sistem (khusus Administrator): persimpangan, parameter AI, pengguna, simulasi."""
+import base64
 import logging
 import math
 import re
@@ -19,6 +20,7 @@ from app.services.neuromorphic import Params
 from app.services.sensor_source import SyntheticSensorSource
 from app.services.simulation_service import run_simulation
 from app.core.timeutil import utcnow
+from app.routers.vision import decode_frame, get_yolo_service
 
 router = APIRouter(prefix="/api/admin", tags=["Kelola Sistem"])
 _admin = require_roles(ROLE_ADMIN)
@@ -32,7 +34,44 @@ def _intersection_dict(p: Persimpangan) -> dict:
     return {"id_persimpangan": p.id_persimpangan, "nama_lokasi": p.nama_lokasi, "deskripsi": p.deskripsi,
             "latitude": p.latitude, "longitude": p.longitude, "detektor_virtual": bool(p.detektor_virtual),
             "jumlah_lengan": len(p.jalur), "tipe": arm_type([j.arah for j in p.jalur]),
-            "jalur": [{"id_jalur": j.id_jalur, "arah": j.arah} for j in p.jalur]}
+            "jalur": [{"id_jalur": j.id_jalur, "arah": j.arah, "vision_preview": j.vision_preview} for j in p.jalur]}
+
+
+def _analyze_registration_feeds(feeds: dict[str, str] | None, lanes: list[str]) -> dict[str, dict]:
+    """Decode registration Data URLs and return YOLO previews/counts per lane."""
+    if not feeds:
+        return {}
+    try:
+        import cv2
+        from app.services.yolo_service import YoloVehicleService
+    except ImportError as error:
+        raise HTTPException(503, "Upload vision membutuhkan paket OpenCV dan Ultralytics.") from error
+
+    base_service = get_yolo_service()
+    analyzed = {}
+    for lane, data_url in feeds.items():
+        if lane not in lanes:
+            raise HTTPException(422, f"Feed vision memiliki lajur tidak dikenal: {lane}.")
+        if not isinstance(data_url, str) or not data_url.startswith("data:image/") or "," not in data_url:
+            raise HTTPException(422, f"Feed vision untuk lajur {lane} harus berupa Data URL gambar.")
+        try:
+            frame = decode_frame(base64.b64decode(data_url.split(",", 1)[1]))
+            service = YoloVehicleService(
+                model=base_service.model,
+                confidence=base_service.confidence,
+                lane_mapper=lambda center_x, center_y, width, height, selected=lane: selected,
+            )
+            result = service.detect(frame)
+            encoded, annotated = cv2.imencode(".jpg", service.draw_detections(frame, result))
+            if not encoded:
+                raise ValueError("hasil anotasi tidak dapat dikodekan")
+        except (ValueError, TypeError, base64.binascii.Error) as error:
+            raise HTTPException(422, f"Feed vision untuk lajur {lane} tidak valid.") from error
+        analyzed[lane] = {
+            "count": result["total"],
+            "preview": "data:image/jpeg;base64," + base64.b64encode(annotated.tobytes()).decode("ascii"),
+        }
+    return analyzed
 
 
 @router.get("/intersections")
@@ -59,18 +98,40 @@ def add_intersection(req: IntersectionCreate, db: Session = Depends(get_db), _=D
     if lon is not None and not (-180 <= lon <= 180 and math.isfinite(lon)):
         raise HTTPException(422, "Longitude harus berada di antara -180 dan 180.")
     try:
-        lengan = normalize_arms(req.lengan)
+        requested_arms = req.lengan
+        if requested_arms is None and req.jumlah_lengan is not None:
+            if req.jumlah_lengan == 4:
+                requested_arms = list(settings.LANE_NAMES)
+            elif req.jumlah_lengan == 3:
+                requested_arms = list(settings.LANE_NAMES[1:])
+            else:
+                raise ValueError("Jumlah lengan harus 3 atau 4.")
+        lengan = normalize_arms(requested_arms)
     except ValueError as e:
         raise HTTPException(422, str(e))
+    if req.jumlah_lengan is not None and req.jumlah_lengan != len(lengan):
+        raise HTTPException(422, "jumlah_lengan tidak sesuai dengan daftar lengan.")
+    if req.bentuk is not None:
+        bentuk = req.bentuk.strip().lower()
+        expected_bentuk = "perempatan" if len(lengan) == 4 else "pertigaan"
+        if expected_bentuk not in bentuk:
+            raise HTTPException(422, "bentuk tidak sesuai dengan jumlah lengan.")
+    analyzed_feeds = _analyze_registration_feeds(req.vision_feeds, lengan)
     p = Persimpangan(nama_lokasi=nama, deskripsi=deskripsi, latitude=lat, longitude=lon,
                      detektor_virtual=True if req.detektor_virtual is None else req.detektor_virtual,
-                     jalur=[Jalur(arah=a) for a in lengan])  # 1 lengan = 1 jalur (3-4 lengan)
-    db.add(p)
-    db.commit()
+                     jalur=[Jalur(arah=a, vision_preview=analyzed_feeds.get(a, {}).get("preview")) for a in lengan])
+    try:
+        db.add(p)
+        db.commit()
+    except Exception as error:
+        db.rollback()
+        logging.getLogger(__name__).exception("Gagal menyimpan persimpangan baru")
+        raise HTTPException(500, "Persimpangan gagal disimpan ke database.") from error
     # Satu siklus simulasi langsung dijalankan agar simpang baru punya data (status, jumlah kendaraan, diagram)
     # tanpa menunggu "Muat ulang"; kegagalan simulasi tidak membatalkan pendaftaran.
     try:
-        data_awal = svc.run_cycle(db, p) is not None
+        initial_counts = [analyzed_feeds.get(lane, {}).get("count", 0) for lane in lengan]
+        data_awal = svc.run_cycle(db, p, counts=initial_counts if analyzed_feeds else None) is not None
     except Exception:
         db.rollback()
         logging.getLogger(__name__).exception("Siklus awal persimpangan %s gagal", p.id_persimpangan)

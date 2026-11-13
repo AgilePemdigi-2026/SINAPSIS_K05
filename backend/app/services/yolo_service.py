@@ -16,6 +16,7 @@ from app.core.config import settings
 
 VEHICLE_CLASSES = frozenset({"car", "bus", "truck", "motorcycle"})
 LANE_NAMES = tuple(settings.LANE_NAMES)
+STANDARD_FRAME_SIZE = (640, 640)
 
 
 class BoundingBox(TypedDict):
@@ -58,12 +59,14 @@ def load_model(weights: str | Path = "yolov8n.pt") -> Any:
 
 
 def quadrant_lane(center_x: float, center_y: float, width: int, height: int) -> str:
-    """Map a bounding-box center to Utara/Selatan/Timur/Barat."""
-    vertical_distance = abs(center_y - height / 2) / max(height, 1)
-    horizontal_distance = abs(center_x - width / 2) / max(width, 1)
+    """Map a center using normalized 0.0-1.0 X/Y coordinates."""
+    x_ratio = center_x / max(width, 1)
+    y_ratio = center_y / max(height, 1)
+    vertical_distance = abs(y_ratio - 0.5)
+    horizontal_distance = abs(x_ratio - 0.5)
     if vertical_distance > horizontal_distance:
-        return LANE_NAMES[0] if center_y < height / 2 else LANE_NAMES[1]
-    return LANE_NAMES[2] if center_x > width / 2 else LANE_NAMES[3]
+        return LANE_NAMES[0] if y_ratio < 0.5 else LANE_NAMES[1]
+    return LANE_NAMES[2] if x_ratio > 0.5 else LANE_NAMES[3]
 
 
 class YoloVehicleService:
@@ -87,6 +90,7 @@ class YoloVehicleService:
         if not isinstance(frame, np.ndarray) or frame.ndim < 2:
             raise ValueError("frame harus berupa numpy.ndarray berdimensi minimal 2")
 
+        frame = self.prepare_frame(frame)
         height, width = frame.shape[:2]
         counts = {lane: 0 for lane in LANE_NAMES}
         detections: list[VehicleDetection] = []
@@ -115,6 +119,15 @@ class YoloVehicleService:
         return {"total": len(detections), "counts": counts, "detections": detections}
 
     @staticmethod
+    def prepare_frame(frame: np.ndarray) -> np.ndarray:
+        """Resize every input to the deterministic YOLO inference size."""
+        try:
+            import cv2
+        except ImportError as error:  # pragma: no cover - optional vision dependency
+            raise RuntimeError("Inferensi YOLO membutuhkan paket 'opencv-python-headless'.") from error
+        return cv2.resize(frame, STANDARD_FRAME_SIZE, interpolation=cv2.INTER_AREA)
+
+    @staticmethod
     def draw_detections(
         frame: np.ndarray,
         result: DetectionResult,
@@ -127,7 +140,7 @@ class YoloVehicleService:
                 "Visualisasi deteksi membutuhkan paket 'opencv-python-headless'."
             ) from error
 
-        annotated_frame = frame.copy()
+        annotated_frame = YoloVehicleService.prepare_frame(frame)
         color = (0, 255, 0)
         for detection in result["detections"]:
             bbox = detection["bbox"]

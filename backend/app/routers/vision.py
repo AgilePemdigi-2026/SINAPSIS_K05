@@ -7,14 +7,21 @@ from functools import lru_cache
 import numpy as np
 from fastapi import (
     APIRouter,
+    Depends,
     File,
     Form,
     HTTPException,
+    Query,
     Response,
     UploadFile,
     WebSocket,
     WebSocketDisconnect,
 )
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.models import Persimpangan
+from app.services import monitoring_service as monitoring
 
 from app.services.yolo_service import LANE_NAMES, YoloVehicleService
 
@@ -60,6 +67,8 @@ def validate_lane(lane: str) -> str:
 async def detect_frame(
     frame: UploadFile = File(...),
     lane: str | None = Form(None),
+    id_persimpangan: int | None = Form(None),
+    db: Session = Depends(get_db),
 ):
     """Detect vehicles from one uploaded JPEG/PNG frame."""
     if frame.content_type and not frame.content_type.startswith("image/"):
@@ -84,7 +93,26 @@ async def detect_frame(
                 confidence=base_service.confidence,
                 lane_mapper=custom_lane_mapper,
             )
-        result = service.detect(decode_frame(await frame.read()))
+        frame_array = decode_frame(await frame.read())
+        result = service.detect(frame_array)
+        cycle = None
+        if id_persimpangan is not None:
+            if lane is None:
+                raise HTTPException(status_code=400, detail="lane wajib diisi saat menyimpan deteksi.")
+            intersection = db.get(Persimpangan, id_persimpangan)
+            if intersection is None:
+                raise HTTPException(status_code=404, detail="Persimpangan tidak ditemukan.")
+            cycle = monitoring.record_vision_detection(db, intersection, lane, result["total"])
+
+        try:
+            import cv2
+            encoded, annotated = cv2.imencode(".jpg", service.draw_detections(frame_array, result))
+            if encoded:
+                result["annotated_image"] = "data:image/jpeg;base64," + base64.b64encode(annotated.tobytes()).decode("ascii")
+        except ImportError:  # pragma: no cover - optional vision dependency
+            pass
+        if cycle is not None:
+            result["ai_cycle"] = cycle
     except RuntimeError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     return result
@@ -93,7 +121,9 @@ async def detect_frame(
 @router.post("/detect-image", response_class=Response)
 async def detect_image(
     frame: UploadFile = File(...),
-    lane: str | None = Form(None),
+    lane: str | None = Query(None),
+    id_persimpangan: int | None = Query(None),
+    db: Session = Depends(get_db),
 ):
     """Detect vehicles and return the uploaded frame with annotated boxes."""
     if frame.content_type and not frame.content_type.startswith("image/"):
@@ -132,6 +162,18 @@ async def detect_image(
                 status_code=500,
                 detail="Gambar hasil deteksi gagal dikodekan.",
             )
+        if id_persimpangan is not None:
+            if lane is None:
+                raise HTTPException(status_code=400, detail="lane wajib diisi saat menyimpan snapshot.")
+            intersection = db.get(Persimpangan, id_persimpangan)
+            if intersection is None:
+                raise HTTPException(status_code=404, detail="Persimpangan tidak ditemukan.")
+            monitoring.record_vision_detection(db, intersection, lane, result["total"])
+            selected_lane = next((item for item in intersection.jalur if item.arah == lane), None)
+            if selected_lane is None:
+                raise HTTPException(status_code=400, detail="Lajur tidak ditemukan pada persimpangan.")
+            selected_lane.vision_preview = "data:image/jpeg;base64," + base64.b64encode(encoded_image.tobytes()).decode("ascii")
+            db.commit()
     except ImportError as error:  # pragma: no cover - depends on environment
         raise HTTPException(
             status_code=503,

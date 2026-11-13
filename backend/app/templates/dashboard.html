@@ -1,137 +1,188 @@
 <!doctype html>
 <html lang="id">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SINAPSIS Dashboard Pemantauan Lalu Lintas</title>
-  <link rel="stylesheet" href="/static/dashboard.css">
-</head>
-<body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="logo">SINAPSIS</span>
-      <span class="brand-sub">Dinas Perhubungan · Telemetri lalu lintas</span>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SINAPSIS Dashboard Pemantauan Lalu Lintas</title>
+    <link rel="stylesheet" href="/static/dashboard.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">SINAPSIS</span>
+        <span class="brand-sub">Dinas Perhubungan · Telemetri lalu lintas</span>
+      </div>
+      <nav class="nav" id="navbar" aria-label="Navigasi utama">
+        <a href="/dashboard" class="active" aria-current="page">Dashboard</a>
+        <a id="navKelola" href="/admin/intersections">Kelola Sistem</a>
+        <a id="navDarurat" href="/emergency/request">Permintaan Darurat</a>
+      </nav>
+      <div class="sysinfo">
+        <span id="clock" class="clock">--</span>
+        <span id="sysState" class="sysstate">Memuat</span>
+        <span
+          id="userRole"
+          class="muted"
+          style="color: #fff; opacity: 0.8; font-size: 11px"
+        ></span>
+      </div>
+    </header>
+
+    <div class="statusbar">
+      <div class="statusbar-left">
+        <span id="dataTime" class="data-time"
+          >Data Lalu Lintas Real-Time Diperbarui: --</span
+        >
+        <span id="simTime" class="muted"></span>
+      </div>
+      <div class="statusbar-right">
+        <label class="auto"
+          ><input type="checkbox" id="autoToggle" checked /> Mode
+          otomatis</label
+        >
+        <select id="autoInterval" aria-label="Interval pembaruan otomatis">
+          <option value="3000">3 detik</option>
+          <option value="5000" selected>5 detik</option>
+          <option value="10000">10 detik</option>
+        </select>
+        <span id="modeLabel" class="mode">Mode: otomatis</span>
+        <button id="btnRefresh" class="btn" type="button">Refresh Data</button>
+      </div>
     </div>
-    <nav class="nav" id="navbar" aria-label="Navigasi utama">
-      <a href="/dashboard" class="active" aria-current="page">Dashboard</a>
-      <a id="navKelola" href="/admin/intersections">Kelola Sistem</a>
-      <a id="navDarurat" href="/emergency/request">Permintaan Darurat</a>
-    </nav>
-    <div class="sysinfo">
-      <span id="clock" class="clock">--</span>
-      <span id="sysState" class="sysstate">Memuat</span>
-      <span id="userRole" class="muted" style="color:#fff;opacity:.8;font-size:11px;"></span>
+
+    <div id="banners" aria-live="polite">
+      <div
+        id="bannerAlert"
+        class="banner banner-alert congestion-alert"
+        hidden
+      ></div>
+      <div id="bannerSensor" class="banner banner-sensor" hidden></div>
+      <div id="bannerError" class="banner banner-error" hidden></div>
+      <div id="toast" class="toast" hidden></div>
     </div>
-  </header>
 
-  <div class="statusbar">
-    <div class="statusbar-left">
-      <span id="dataTime" class="data-time">Data Lalu Lintas Real-Time Diperbarui: --</span>
-      <span id="simTime" class="muted"></span>
-    </div>
-    <div class="statusbar-right">
-      <label class="auto"><input type="checkbox" id="autoToggle" checked> Mode otomatis</label>
-      <select id="autoInterval" aria-label="Interval pembaruan otomatis">
-        <option value="3000">3 detik</option>
-        <option value="5000" selected>5 detik</option>
-        <option value="10000">10 detik</option>
-      </select>
-      <span id="modeLabel" class="mode">Mode: otomatis</span>
-      <button id="btnRefresh" class="btn" type="button">Refresh Data</button>
-    </div>
-  </div>
+    <main class="page" id="traffic-density-map">
+      <section id="kpis" class="kpis" aria-label="Ringkasan jaringan"></section>
 
-  <div id="banners" aria-live="polite">
-    <div id="bannerAlert" class="banner banner-alert congestion-alert" hidden></div>
-    <div id="bannerSensor" class="banner banner-sensor" hidden></div>
-    <div id="bannerError" class="banner banner-error" hidden></div>
-    <div id="toast" class="toast" hidden></div>
-  </div>
-
-  <main class="page" id="traffic-density-map">
-    <section id="kpis" class="kpis" aria-label="Ringkasan jaringan"></section>
-
-    <div class="grid">
-      <section class="panel hero" aria-labelledby="diagramTitle">
-        <div class="panel-head">
-          <h2 id="diagramTitle">Diagram skematik persimpangan aktif</h2>
-          <div class="head-tools">
-            <button id="animToggle" class="btn-outline sm" type="button" aria-pressed="true">Animasi: hidup</button>
-            <label class="pick">Persimpangan
-              <select id="selSimpang"></select>
-            </label>
-          </div>
-        </div>
-        <div id="diagram" class="diagram"></div>
-        <p class="legend">Satu mobil atau motor di layar = satu kendaraan pada data siklus terakhir. Lajur masuk berada di sisi kiri jalan; kendaraan di lengan hijau dilepas satu per satu, lengan merah menunggu.
-          Lampu menyala sesuai keputusan terakhir mesin LIF.</p>
-        <div id="metrics" class="metrics"></div>
-      </section>
-
-      <aside class="side">
-        <section class="panel" aria-labelledby="listTitle">
-          <div class="panel-head"><h2 id="listTitle">Status persimpangan</h2><span id="listCount" class="muted"></span></div>
-          <div class="list-head"><span>Persimpangan</span><span>Status</span><span class="num">Kendaraan</span></div>
-          <div id="statusList" class="status-list intersection-status-list"></div>
-          <p class="note">Kendaraan = jumlah pada siklus terakhir (semua lengan). Bilah = kepadatan jalur terpadat.</p>
-        </section>
-
-        <section class="panel" aria-labelledby="predTitle">
-          <div class="panel-head"><h2 id="predTitle">Prediksi jam berikutnya</h2><span id="predModel" class="muted"></span></div>
-          <div id="predPanel"></div>
-        </section>
-
-        <section class="panel" aria-labelledby="cctvTitle">
-          <div class="panel-head"><h2 id="cctvTitle">Umpan CCTV</h2></div>
-          <div class="cctv">
-            <svg viewBox="0 0 48 32" width="44" height="30" aria-hidden="true"><rect x="2" y="6" width="30" height="20" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M32 13l12-6v18l-12-6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-            <div>
-              <p><strong>Video belum tersambung</strong></p>
-              <p>Deteksi kendaraan dari video (YOLOv8) belum diaktifkan. Jumlah kendaraan saat ini berasal dari dataset lalu lintas yang diputar ulang.</p>
+      <div class="grid">
+        <section class="panel hero" aria-labelledby="diagramTitle">
+          <div class="panel-head">
+            <h2 id="diagramTitle">Diagram skematik persimpangan aktif</h2>
+            <div class="head-tools">
+              <button
+                id="animToggle"
+                class="btn-outline sm"
+                type="button"
+                aria-pressed="true"
+              >
+                Animasi: hidup
+              </button>
+              <label class="pick"
+                >Persimpangan
+                <select id="selSimpang"></select>
+              </label>
             </div>
           </div>
+          <div id="diagram" class="diagram"></div>
+          <p class="legend">
+            Satu mobil atau motor di layar = satu kendaraan pada data siklus
+            terakhir. Lajur masuk berada di sisi kiri jalan; kendaraan di lengan
+            hijau dilepas satu per satu, lengan merah menunggu. Lampu menyala
+            sesuai keputusan terakhir mesin LIF.
+          </p>
+          <div id="metrics" class="metrics"></div>
         </section>
-      </aside>
-    </div>
 
-    <section class="panel telemetry" aria-labelledby="telTitle">
-      <div class="panel-head"><h2 id="telTitle">Ringkasan per persimpangan</h2><span class="muted">Dari siklus terakhir</span></div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Persimpangan</th><th class="num">Total kendaraan</th><th>Jalur terpadat</th>
-              <th class="num">Densitas maks</th><th>Periode (ambang spike)</th><th class="num">Prediksi jam depan</th><th>Status algoritma</th>
-            </tr>
-          </thead>
-          <tbody id="telemetryBody"></tbody>
-        </table>
+        <aside class="side">
+          <section class="panel" aria-labelledby="listTitle">
+            <div class="panel-head">
+              <h2 id="listTitle">Status persimpangan</h2>
+              <span id="listCount" class="muted"></span>
+            </div>
+            <div class="list-head">
+              <span>Persimpangan</span><span>Status</span
+              ><span class="num">Kendaraan</span>
+            </div>
+            <div
+              id="statusList"
+              class="status-list intersection-status-list"
+            ></div>
+            <p class="note">
+              Kendaraan = jumlah pada siklus terakhir (semua lengan). Bilah =
+              kepadatan jalur terpadat.
+            </p>
+          </section>
+
+          <section class="panel" aria-labelledby="predTitle">
+            <div class="panel-head">
+              <h2 id="predTitle">Prediksi jam berikutnya</h2>
+              <span id="predModel" class="muted"></span>
+            </div>
+            <div id="predPanel"></div>
+          </section>
+
+          <section class="panel" aria-labelledby="cctvTitle">
+            <div class="panel-head"><h2 id="cctvTitle">Umpan CCTV</h2></div>
+            <div id="cctvFeed" class="cctv"></div>
+          </section>
+        </aside>
       </div>
-    </section>
-  </main>
 
-  <footer class="footer">
-    <span>SINAPSIS · Pusat Pengendalian Lalu Lintas Terpadu Dinas Perhubungan</span>
-    <span id="latency">Latensi API: --</span>
-  </footer>
+      <section class="panel telemetry" aria-labelledby="telTitle">
+        <div class="panel-head">
+          <h2 id="telTitle">Ringkasan per persimpangan</h2>
+          <span class="muted">Dari siklus terakhir</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Persimpangan</th>
+                <th class="num">Total kendaraan</th>
+                <th>Jalur terpadat</th>
+                <th class="num">Densitas maks</th>
+                <th>Periode (ambang spike)</th>
+                <th class="num">Prediksi jam depan</th>
+                <th>Status algoritma</th>
+              </tr>
+            </thead>
+            <tbody id="telemetryBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
 
-  <script src="/static/traffic_anim.js"></script>
-  <script src="/static/dashboard.js"></script>
-  <script>
-  /* RBAC Navigation - Ryan (GIS) */
-  (function () {
-    var role = localStorage.getItem('user_role');
-    var nama = localStorage.getItem('user_nama');
-    var roleEl = document.getElementById('userRole');
-    if (roleEl && nama) roleEl.textContent = nama + ' (' + role + ')';
-    if (role === 'Administrator') {
-      var el = document.getElementById('navKelola');
-      if (el) { el.hidden = false; el.classList.remove('disabled'); }
-    } else if (role === 'Petugas Lalu Lintas') {
-      var el2 = document.getElementById('navDarurat');
-      if (el2) { el2.hidden = false; el2.classList.remove('disabled'); }
-    }
-  })();
-  </script>
-</body>
+    <footer class="footer">
+      <span
+        >SINAPSIS · Pusat Pengendalian Lalu Lintas Terpadu Dinas
+        Perhubungan</span
+      >
+      <span id="latency">Latensi API: --</span>
+    </footer>
+
+    <script src="/static/traffic_anim.js"></script>
+    <script src="/static/dashboard.js"></script>
+    <script>
+      /* RBAC Navigation - Ryan (GIS) */
+      (function () {
+        var role = localStorage.getItem("user_role");
+        var nama = localStorage.getItem("user_nama");
+        var roleEl = document.getElementById("userRole");
+        if (roleEl && nama) roleEl.textContent = nama + " (" + role + ")";
+        if (role === "Administrator") {
+          var el = document.getElementById("navKelola");
+          if (el) {
+            el.hidden = false;
+            el.classList.remove("disabled");
+          }
+        } else if (role === "Petugas Lalu Lintas") {
+          var el2 = document.getElementById("navDarurat");
+          if (el2) {
+            el2.hidden = false;
+            el2.classList.remove("disabled");
+          }
+        }
+      })();
+    </script>
+  </body>
 </html>

@@ -40,7 +40,10 @@ class IntersectionCreate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     detektor_virtual: Optional[bool] = True
+    bentuk: Optional[str] = None
+    jumlah_lengan: Optional[int] = None
     lengan: Optional[list[str]] = None  # None = 4 lengan; boleh 3-4 dari Utara/Selatan/Timur/Barat
+    vision_feeds: Optional[dict[str, str]] = None
 
 
 # ---- Persimpangan GIS (Ryan) — extended dengan atribut GIS ----------------

@@ -54,6 +54,7 @@ class Jalur(Base):
         ForeignKey("persimpangan.id_persimpangan"), index=True
     )
     arah: Mapped[str] = mapped_column(String(20), nullable=False)  # Utara, Selatan, Timur, Barat
+    vision_preview: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     persimpangan: Mapped[Persimpangan] = relationship(back_populates="jalur")
 
