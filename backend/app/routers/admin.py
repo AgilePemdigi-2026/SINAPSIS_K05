@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import ROLE_ADMIN, ROLE_PETUGAS, PASS_RULE, hash_password, require_roles
-from app.models import Jalur, KonfigurasiSistem, Pengguna, Persimpangan
+from app.models import Jalur, KonfigurasiSistem, Pengguna, Persimpangan, SimulasiSkenario
 from app.schemas import IntersectionCreate, ParameterUpdate, SimulationRequest, UserCreate
 from app.services import monitoring_service as svc
 from app.services.arms import arm_type, normalize_arms
@@ -230,6 +230,46 @@ def add_user(req: UserCreate, db: Session = Depends(get_db), _=Depends(_admin)):
 
 
 # ---- Simulasi skenario -----------------------------------------------------
+@router.get("/simulations/scenarios")
+def list_simulation_scenarios(_=Depends(_admin)):
+    """Daftar profil skenario simulasi lalu lintas yang tersedia."""
+    scenarios = [
+        {"profil": "NORMAL", "deskripsi": "Arus lalu lintas jam normal (lancar-sedang)", "distribusi_lengan": [8, 7, 4, 3], "jam_simulasi": 10},
+        {"profil": "RUSH_HOUR", "deskripsi": "Arus jam sibuk (kepadatan tinggi merata)", "distribusi_lengan": [16, 16, 16, 16], "jam_simulasi": 20},
+        {"profil": "EMERGENCY", "deskripsi": "Kondisi darurat (satu jalur sangat padat/kritis)", "distribusi_lengan": [18, 5, 4, 3], "jam_simulasi": 20},
+        {"profil": "NIGHT", "deskripsi": "Arus malam hari (sepi)", "distribusi_lengan": [2, 2, 2, 2], "jam_simulasi": 4},
+    ]
+    return {
+        "profil_tersedia": scenarios,
+        "opsi_gangguan": {
+            "inject_weather_noise": "Injeksi noise cuaca ekstrem (hujan deras/kabut, variansi volume 2x lipat)",
+            "simulasi_sensor_failure": "Simulasi sensor mati berkala (memicu transisi otomatis ke mode fail-safe fixed-timer)",
+        },
+        "standar_keamanan": "SRS 5.2 (Safety Requirements & Interlocking Safety)",
+    }
+
+
+@router.get("/simulations/history")
+def simulation_history(limit: int = 50, db: Session = Depends(get_db), _=Depends(_admin)):
+    """Riwayat eksekusi pengujian simulasi skenario."""
+    rows = db.scalars(
+        select(SimulasiSkenario)
+        .order_by(SimulasiSkenario.waktu_mulai.desc())
+        .limit(limit)
+    ).all()
+    names = {u.id_pengguna: u.nama for u in db.scalars(select(Pengguna)).all()}
+    return [{
+        "id_simulasi": s.id_simulasi,
+        "profil_skenario": s.profil_skenario,
+        "jumlah_siklus": s.jumlah_siklus,
+        "inject_weather_noise": s.inject_weather_noise,
+        "simulasi_sensor_failure": s.simulasi_sensor_failure,
+        "dijalankan_oleh": names.get(s.id_pengguna, str(s.id_pengguna)),
+        "waktu_mulai": s.waktu_mulai.isoformat(),
+        "waktu_selesai": s.waktu_selesai.isoformat() if s.waktu_selesai else None,
+    } for s in rows]
+
+
 @router.post("/simulations")
 def simulate(req: SimulationRequest, db: Session = Depends(get_db), user=Depends(_admin)):
     if req.profil not in SyntheticSensorSource.PROFILES:

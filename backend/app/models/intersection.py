@@ -152,3 +152,27 @@ class KonfigurasiSistem(Base):
     jenis_parameter: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
     nilai: Mapped[str] = mapped_column(String(100), nullable=False)
     waktu_perubahan: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class NotifikasiAlert(Base):
+    """Tabel `notifikasialert` — Log notifikasi congestion alert & sensor offline (Fitur 10).
+
+    Menyimpan riwayat semua alert yang pernah dibangkitkan sistem,
+    termasuk tipe (CONGESTION / SENSOR_OFFLINE), tingkat keparahan
+    (PERINGATAN_DINI / KRITIS), persimpangan terkait, dan status
+    acknowledgement oleh petugas.
+    """
+
+    __tablename__ = "notifikasialert"
+
+    id_alert: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tipe: Mapped[str] = mapped_column(String(30), nullable=False, index=True)  # CONGESTION | SENSOR_OFFLINE
+    severity: Mapped[str] = mapped_column(String(30), nullable=False)  # PERINGATAN_DINI | KRITIS | OFFLINE
+    id_persimpangan: Mapped[int] = mapped_column(ForeignKey("persimpangan.id_persimpangan"), index=True)
+    nama_lokasi: Mapped[str] = mapped_column(String(100), nullable=False)
+    pesan: Mapped[str] = mapped_column(Text, nullable=False)
+    densitas_pct: Mapped[int | None] = mapped_column(Integer, nullable=True)  # persentase kepadatan saat alert
+    waktu_dibuat: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    acknowledged: Mapped[bool] = mapped_column(Boolean, default=False)
+    waktu_acknowledged: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    id_pengguna_ack: Mapped[int | None] = mapped_column(ForeignKey("pengguna.id_pengguna"), nullable=True)
