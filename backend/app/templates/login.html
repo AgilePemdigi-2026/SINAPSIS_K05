@@ -112,7 +112,7 @@
             z-index: 2;
             width: 90%;
             max-width: 940px;
-            min-height: 560px;
+            min-height: 540px;
             background: rgba(255, 255, 255, 0.7);
             backdrop-filter: blur(24px);
             -webkit-backdrop-filter: blur(24px);
@@ -182,7 +182,7 @@
             letter-spacing: 0.5px;
         }
 
-        .form-group input, .form-group select {
+        .form-group input {
             width: 100%;
             padding: 11px 14px;
             background: rgba(255, 255, 255, 0.85);
@@ -194,7 +194,7 @@
             transition: all 0.2s ease;
         }
 
-        .form-group input:focus, .form-group select:focus {
+        .form-group input:focus {
             background: #ffffff;
             border-color: #152c70;
             box-shadow: 0 0 0 3px rgba(21, 44, 112, 0.15);
@@ -221,10 +221,10 @@
             box-shadow: 0 6px 18px rgba(21, 44, 112, 0.35);
         }
 
-        /* BOTTOM LINKS SWITCHER */
+        /* BOTTOM LINKS & CENTER NOTICE */
         .auth-links-row {
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-end;
             margin-top: 14px;
             font-size: 12px;
         }
@@ -240,6 +240,18 @@
         .auth-links-row a:hover {
             color: #4672a8;
             text-decoration: underline;
+        }
+
+        .admin-notice {
+            margin-top: 20px;
+            padding: 10px 14px;
+            background: rgba(21, 44, 112, 0.06);
+            border: 1px solid rgba(21, 44, 112, 0.14);
+            border-radius: 10px;
+            font-size: 11.5px;
+            color: #334155;
+            text-align: center;
+            line-height: 1.45;
         }
 
         .alert-box {
@@ -394,46 +406,15 @@
                 <button class="btn-submit" onclick="executeLogin()">Masuk Ke Sistem</button>
 
                 <div class="auth-links-row">
-                    <a onclick="switchView('viewRegister')">Daftar Akun Baru</a>
                     <a onclick="switchView('viewForgot')">Lupa Password?</a>
                 </div>
-            </div>
 
-            <!-- VIEW 2: REGISTRASI -->
-            <div id="viewRegister" style="display: none;">
-                <h2>Registrasi</h2>
-                <p class="subtitle">Daftarkan akun petugas/admin baru</p>
-
-                <div class="form-group">
-                    <label for="regFullName">Nama Lengkap</label>
-                    <input type="text" id="regFullName" placeholder="Contoh: Ezi Fahrezi">
-                </div>
-
-                <div class="form-group">
-                    <label for="regUsername">Username</label>
-                    <input type="text" id="regUsername" placeholder="Username unik">
-                </div>
-
-                <div class="form-group">
-                    <label for="regPassword">Password</label>
-                    <input type="password" id="regPassword" placeholder="Minimal 6 karakter">
-                </div>
-
-                <div class="form-group">
-                    <label for="regRole">Role Akses</label>
-                    <select id="regRole">
-                        <option value="petugas">Petugas Lalu Lintas</option>
-                    </select>
-                </div>
-
-                <button class="btn-submit" onclick="executeRegister()">Daftarkan Akun</button>
-
-                <div class="auth-links-row" style="justify-content: center;">
-                    <a onclick="switchView('viewLogin')">← Kembali ke Sign In</a>
+                <div class="admin-notice">
+                    Pendaftaran publik dinonaktifkan. Pembuatan dan aktivasi akun petugas dikelola langsung oleh <strong>Admin Pusat SINAPSIS</strong>.
                 </div>
             </div>
 
-            <!-- VIEW 3: LUPA PASSWORD -->
+            <!-- VIEW 2: LUPA PASSWORD -->
             <div id="viewForgot" style="display: none;">
                 <h2>Lupa Password</h2>
                 <p class="subtitle">Reset password akun Anda</p>
@@ -556,7 +537,6 @@
         // SWITCHER TAMPILAN VIEW
         function switchView(viewId) {
             document.getElementById('viewLogin').style.display = 'none';
-            document.getElementById('viewRegister').style.display = 'none';
             document.getElementById('viewForgot').style.display = 'none';
             
             const notif = document.getElementById('globalNotification');
@@ -576,7 +556,6 @@
         async function executeLogin() {
             const usernameInput = document.getElementById('username').value;
             const passwordInput = document.getElementById('password').value;
-            showNotif('', false);
             document.getElementById('globalNotification').style.display = 'none';
 
             try {
@@ -614,39 +593,7 @@
             }
         }
 
-        // 2. EXECUTE REGISTER
-        async function executeRegister() {
-            const fullName = document.getElementById('regFullName').value;
-            const username = document.getElementById('regUsername').value;
-            const password = document.getElementById('regPassword').value;
-            const role = document.getElementById('regRole').value;
-
-            if (!fullName || !username || !password) {
-                showNotif('Semua field wajib diisi!');
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/auth/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ full_name: fullName, username: username, password: password, role: role })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    showNotif(data.pesan || 'Registrasi berhasil! Silakan Sign In.', true);
-                    setTimeout(() => switchView('viewLogin'), 2000);
-                } else {
-                    showNotif(data.detail || 'Registrasi gagal.');
-                }
-            } catch (err) {
-                showNotif('Gagal terhubung ke server backend.');
-            }
-        }
-
-        // 3. EXECUTE REQUEST TOKEN LUPA PASSWORD
+        // 2. EXECUTE REQUEST TOKEN LUPA PASSWORD
         async function executeRequestToken() {
             const username = document.getElementById('forgotUsername').value;
 
@@ -677,7 +624,7 @@
             }
         }
 
-        // 4. EXECUTE RESET PASSWORD BARU
+        // 3. EXECUTE RESET PASSWORD BARU
         async function executeResetPassword() {
             const resetToken = document.getElementById('resetToken').value;
             const newPassword = document.getElementById('newPassword').value;
@@ -708,9 +655,8 @@
         }
 
         document.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
-                if (document.getElementById('viewLogin').style.display !== 'none') executeLogin();
-                else if (document.getElementById('viewRegister').style.display !== 'none') executeRegister();
+            if (e.key === 'Enter' && document.getElementById('viewLogin').style.display !== 'none') {
+                executeLogin();
             }
         });
     </script>
