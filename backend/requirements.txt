@@ -16,6 +16,8 @@ python-multipart>=0.0.9
 pytest>=8.0
 httpx>=0.27
 pytest-bdd>=9.0
-# --- opsional: deteksi kendaraan dari video (YOLOv8) ---
+# --- deteksi kendaraan dari video (YOLOv8) ---
+# OpenCV dipakai yolo_service (resize/anotasi frame) dan test_vision.py
+opencv-python-headless>=4.10
+# opsional (berat, menarik PyTorch): bobot model YOLOv8 asli
 # ultralytics>=8.3
-# opencv-python-headless>=4.10
