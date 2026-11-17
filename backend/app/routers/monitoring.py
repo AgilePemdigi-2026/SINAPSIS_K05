@@ -90,3 +90,20 @@ def acknowledge(alert_id: int, db: Session = Depends(get_db), user=Depends(_both
     if result is None:
         raise HTTPException(404, "Alert tidak ditemukan.")
     return {"pesan": "Alert berhasil di-acknowledge.", "alert": result}
+
+
+# ---- Endpoint Fail-Safe (Fitur 11: Mode Fail-Safe & Testing) ----
+
+@router.get("/fail-safe/status")
+def failsafe_status(db: Session = Depends(get_db), _=Depends(_both)):
+    """Status mode operasi seluruh persimpangan: ADAPTIF_AI vs FAIL_SAFE."""
+    return svc.get_failsafe_status(db)
+
+
+@router.post("/fail-safe/{id_persimpangan}")
+def execute_failsafe(id_persimpangan: int, fixed_green: int | None = None, db: Session = Depends(get_db), _=Depends(_both)):
+    """Picu satu siklus mode Fail-Safe (fixed-timer konvensional) untuk persimpangan."""
+    p = db.get(Persimpangan, id_persimpangan)
+    if p is None:
+        raise HTTPException(404, "Persimpangan tidak ditemukan.")
+    return svc.run_failsafe_cycle(db, p, fixed_green=fixed_green)

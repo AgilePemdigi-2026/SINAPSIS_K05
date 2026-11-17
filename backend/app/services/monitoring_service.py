@@ -171,6 +171,62 @@ def record_vision_detection(db: Session, persimpangan: Persimpangan, lane_name: 
     return result
 
 
+def run_failsafe_cycle(db: Session, persimpangan: Persimpangan, fixed_green: int | None = None) -> dict:
+    """
+    Eksekusi satu siklus mode Fail-Safe untuk persimpangan saat sensor offline.
+    Menerapkan fixed-timer konvensional bergilir dan mencatat keputusan sinyal
+    ke database operasional agar pengontrol lampu lalu lintas lapangan tetap
+    menerima instruksi sinyal yang aman (Interlocking Safety per SRS 5.2).
+    """
+    jalur = sorted(persimpangan.jalur, key=lambda j: j.id_jalur)
+    hub.offline.add(persimpangan.id_persimpangan)
+    engine = hub.engine_for(persimpangan.id_persimpangan, len(jalur))
+    params = load_params(db)
+
+    result = engine.fail_safe_step(params, fixed_green=fixed_green)
+    now = utcnow()
+
+    for lane in result["lanes"]:
+        j = jalur[lane["lane_index"]]
+        lane["id_jalur"], lane["arah"] = j.id_jalur, j.arah
+        db.add(Deteksi(id_jalur=j.id_jalur, waktu_deteksi=now, jumlah_kendaraan=0))
+        db.add(AktivitasNeuron(id_jalur=j.id_jalur, waktu=now, membrane_potential=lane["membrane_potential"],
+                              status_spike=False, threshold=lane["threshold"]))
+        db.add(KeputusanSinyal(id_jalur=j.id_jalur, waktu_keputusan=now, warna_sinyal=lane["signal"],
+                              durasi_detik=lane["duration"]))
+
+    db.commit()
+    result["id_persimpangan"] = persimpangan.id_persimpangan
+    hub.last_result[persimpangan.id_persimpangan] = result
+    return result
+
+
+def get_failsafe_status(db: Session) -> dict:
+    """Status mode operasi seluruh persimpangan: ADAPTIF_AI vs FAIL_SAFE."""
+    persimpangans = db.scalars(select(Persimpangan).order_by(Persimpangan.id_persimpangan)).all()
+    items = []
+    for p in persimpangans:
+        is_offline = p.id_persimpangan in hub.offline
+        mode = "FAIL_SAFE" if is_offline else "ADAPTIF_AI"
+        items.append({
+            "id_persimpangan": p.id_persimpangan,
+            "nama_lokasi": p.nama_lokasi,
+            "mode_operasi": mode,
+            "sensor_offline": is_offline,
+            "deskripsi_mode": (
+                "Mode Fail-Safe: Fallback fixed-timer konvensional aktif (Sensor Offline)"
+                if is_offline
+                else "Mode Adaptif: Logika AI Neuromorfik LIF aktif"
+            ),
+        })
+    return {
+        "total_persimpangan": len(items),
+        "persimpangan_adaptif": sum(1 for i in items if i["mode_operasi"] == "ADAPTIF_AI"),
+        "persimpangan_failsafe": sum(1 for i in items if i["mode_operasi"] == "FAIL_SAFE"),
+        "status": items,
+    }
+
+
 def status_label(max_count: int) -> str:
     ratio = max_count / settings.MAX_VEHICLES
     if ratio >= settings.EMERGENCY_RATIO:
