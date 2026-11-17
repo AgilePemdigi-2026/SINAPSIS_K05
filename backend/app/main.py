@@ -20,6 +20,7 @@ from app.core.database import Base, SessionLocal, engine, get_db
 from app.routers import admin, auth, emergency, monitoring, prediction, vision
 from app.services import monitoring_service as svc
 from app.services.seed import seed
+from app.routers import auth, emergency
 
 # Setup Path Absolut
 CURRENT_DIR = Path(__file__).resolve().parent

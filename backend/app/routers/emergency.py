@@ -12,6 +12,16 @@ from app.schemas import EmergencySearch
 from app.services import monitoring_service as svc
 from app.services.routing_service import dijkstra, load_graph, resolve_node
 from app.core.timeutil import utcnow
+from typing import List
+from pydantic import BaseModel, Field
+from app.services.green_corridor_service import (
+    ACTIVE_CORRIDORS,
+    INTERSECTION_OVERRIDES,
+    activate_green_corridor,
+    release_green_corridor,
+)
+from app.core.security import get_current_user
+from app.models import Pengguna
 
 router = APIRouter(prefix="/api/emergency", tags=["Rute Darurat"])
 _petugas = require_roles(ROLE_PETUGAS)
@@ -115,3 +125,55 @@ def complete(id_rute: int, db: Session = Depends(get_db), _=Depends(_petugas)):
 def list_routes(db: Session = Depends(get_db), _=Depends(_petugas)):
     rows = db.scalars(select(RuteDarurat).order_by(RuteDarurat.id_rute.desc()).limit(50)).all()
     return [_serialize(r, db) for r in rows]
+
+# ---- Fitur 9: Automated Green Corridor & Intervensi Lampu --------------------
+class GreenCorridorRequest(BaseModel):
+    emergency_id: str = Field(..., min_length=2, example="EMG-001")
+    vehicle_type: str = Field(..., min_length=2, example="Ambulans")
+    route_intersections: List[str] = Field(
+        ...,
+        min_length=1,
+        example=["SIMPANG-01", "SIMPANG-03", "SIMPANG-05"],
+    )
+
+
+@router.post("/green-corridor/activate", status_code=201)
+def trigger_green_corridor(
+    payload: GreenCorridorRequest,
+    user: Pengguna = Depends(get_current_user),
+):
+    result = activate_green_corridor(
+        emergency_id=payload.emergency_id.strip(),
+        vehicle_type=payload.vehicle_type.strip(),
+        route_intersections=payload.route_intersections,
+        triggered_by=user.username,
+    )
+    return {
+        "pesan": f"Automated Green Corridor ({payload.emergency_id}) berhasil diaktifkan!",
+        "status": "ACTIVE",
+        "data": result,
+    }
+
+
+@router.post("/green-corridor/release/{emergency_id}")
+def stop_green_corridor(
+    emergency_id: str,
+    user: Pengguna = Depends(get_current_user),
+):
+    result = release_green_corridor(emergency_id.strip())
+    if result is None:
+        raise HTTPException(404, f"Koridor darurat '{emergency_id}' tidak ditemukan atau sudah selesai.")
+    return {
+        "pesan": f"Green Corridor ({emergency_id}) dinonaktifkan. Lampu kembali ke mode AI adaptif.",
+        "status": "RELEASED",
+        "data": result,
+    }
+
+
+@router.get("/green-corridor/status")
+def get_green_corridor_status(user: Pengguna = Depends(get_current_user)):
+    return {
+        "total_active": len(ACTIVE_CORRIDORS),
+        "active_corridors": list(ACTIVE_CORRIDORS.values()),
+        "overridden_intersections": INTERSECTION_OVERRIDES,
+    }
