@@ -127,8 +127,8 @@ def test_failsafe_status_all_intersections(client, admin):
     r = client.get("/api/monitoring/fail-safe/status", headers=admin)
     assert r.status_code == 200
     data = r.json()
-    assert data["total_persimpangan"] == 4
-    assert data["persimpangan_adaptif"] == 4
+    assert data["total_persimpangan"] == 5
+    assert data["persimpangan_adaptif"] == 5
     assert data["persimpangan_failsafe"] == 0
 
     # Jadikan satu simpang offline

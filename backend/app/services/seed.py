@@ -16,6 +16,7 @@ DEMO_INTERSECTIONS = [
     ("Simpang Pemuda", "Persimpangan pusat kota"),
     ("Simpang Raya", "Persimpangan Jl. Raya"),
     ("Simpang Wonokromo", "Persimpangan arah selatan"),
+    ("Simpang Kertajaya", "Persimpangan Jl. Kertajaya - Jl. Airlangga"),
 ]
 # Koordinat PERKIRAAN (derajat desimal) hanya untuk memplot titik di peta demo (F5), bukan data survei.
 DEMO_COORDS = {
@@ -23,6 +24,7 @@ DEMO_COORDS = {
     "Simpang Pemuda": (-7.2625, 112.7455),
     "Simpang Raya": (-7.2895, 112.7390),
     "Simpang Wonokromo": (-7.3040, 112.7375),
+    "Simpang Kertajaya": (-7.2755, 112.7565),
 }
 
 
@@ -37,6 +39,16 @@ def seed(db: Session) -> None:
             lat, lon = DEMO_COORDS[nama]
             db.add(Persimpangan(nama_lokasi=nama, deskripsi=desk, latitude=lat, longitude=lon,
                                 jalur=[Jalur(arah=a) for a in settings.LANE_NAMES]))
+    else:
+        # database lama (sebelum jaringan 5 simpang, Sprint 3): tambahkan persimpangan demo yang belum ada.
+        # Hanya bila database memang memakai data demo (minimal satu persimpangan demo sudah terdaftar).
+        have = set(db.scalars(select(Persimpangan.nama_lokasi)).all())
+        if have & set(DEMO_COORDS):
+            for nama, desk in DEMO_INTERSECTIONS:
+                if nama not in have:
+                    lat, lon = DEMO_COORDS[nama]
+                    db.add(Persimpangan(nama_lokasi=nama, deskripsi=desk, latitude=lat, longitude=lon,
+                                        jalur=[Jalur(arah=a) for a in settings.LANE_NAMES]))
     # database lama (dibuat sebelum F5): isi koordinat persimpangan demo yang masih kosong
     for p in db.scalars(select(Persimpangan).where(Persimpangan.latitude.is_(None))).all():
         if p.nama_lokasi in DEMO_COORDS:
