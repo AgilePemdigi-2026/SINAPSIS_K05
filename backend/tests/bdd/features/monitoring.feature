@@ -11,7 +11,7 @@ Feature: Pantau kondisi lalu lintas
     When saya menekan Refresh Data
     Then respons berstatus 200
     And pesan respons adalah "Data lalu lintas berhasil dimuat ulang."
-    And dashboard menampilkan 4 persimpangan
+    And dashboard menampilkan 5 persimpangan
 
   Scenario: Peringatan muncul saat satu jalur kritis
     Given saya login sebagai Administrator

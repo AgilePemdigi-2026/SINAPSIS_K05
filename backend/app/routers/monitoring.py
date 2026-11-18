@@ -1,4 +1,4 @@
-"""Fitur Pantau Kondisi Lalu Lintas (REQ-7..10): dashboard, refresh, siklus manual, riwayat."""
+"""Fitur Pantau Kondisi Lalu Lintas (REQ-7..10): dashboard, refresh, siklus manual, riwayat, alert."""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -8,6 +8,7 @@ from app.core.security import ROLE_ADMIN, ROLE_PETUGAS, optional_roles, require_
 from app.models import Deteksi, Jalur, KeputusanSinyal, Persimpangan
 from app.schemas import ManualCycleRequest
 from app.services import monitoring_service as svc
+from app.services import alert_service
 
 router = APIRouter(prefix="/api/monitoring", tags=["Pantau Lalu Lintas"])
 _both = require_roles(ROLE_ADMIN, ROLE_PETUGAS)
@@ -16,7 +17,11 @@ _view = optional_roles(ROLE_ADMIN, ROLE_PETUGAS)  # terbuka tanpa login saat DAS
 
 @router.get("/dashboard")
 def get_dashboard(db: Session = Depends(get_db), _=Depends(_view)):
-    return svc.dashboard(db)
+    data = svc.dashboard(db)
+    # Generate alert otomatis dari data dashboard
+    alert_service.generate_alerts(db, data)
+    data["alert_summary"] = alert_service.get_alert_summary(db)
+    return data
 
 
 @router.post("/refresh")
@@ -26,6 +31,9 @@ def refresh(db: Session = Depends(get_db), _=Depends(_view)):
         svc.run_cycle(db, p)
     data = svc.dashboard(db)
     data["pesan"] = "Data lalu lintas berhasil dimuat ulang."
+    # Generate alert otomatis dari data dashboard
+    alert_service.generate_alerts(db, data)
+    data["alert_summary"] = alert_service.get_alert_summary(db)
     return data
 
 
@@ -57,3 +65,45 @@ def history(id_persimpangan: int, limit: int = 20, db: Session = Depends(get_db)
         "deteksi": [{"id_jalur": d.id_jalur, "waktu": d.waktu_deteksi.isoformat(), "jumlah_kendaraan": d.jumlah_kendaraan} for d in dets],
         "keputusan": [{"id_jalur": k.id_jalur, "waktu": k.waktu_keputusan.isoformat(), "warna": k.warna_sinyal, "durasi": k.durasi_detik} for k in decs],
     }
+
+
+# ---- Endpoint Alert (Fitur 10: Congestion Alert & Sensor Offline) ----
+
+@router.get("/alerts")
+def get_alerts(db: Session = Depends(get_db), _=Depends(_both)):
+    """Ambil semua alert aktif (belum di-acknowledge)."""
+    alerts = alert_service.get_active_alerts(db)
+    summary = alert_service.get_alert_summary(db)
+    return {"alerts": alerts, "summary": summary}
+
+
+@router.get("/alerts/history")
+def get_alerts_history(limit: int = 50, db: Session = Depends(get_db), _=Depends(_both)):
+    """Riwayat semua alert (aktif maupun sudah ditangani)."""
+    return {"alerts": alert_service.get_alert_history(db, limit)}
+
+
+@router.post("/alerts/{alert_id}/acknowledge")
+def acknowledge(alert_id: int, db: Session = Depends(get_db), user=Depends(_both)):
+    """Tandai alert sebagai sudah ditangani oleh petugas."""
+    result = alert_service.acknowledge_alert(db, alert_id, user.id_pengguna)
+    if result is None:
+        raise HTTPException(404, "Alert tidak ditemukan.")
+    return {"pesan": "Alert berhasil di-acknowledge.", "alert": result}
+
+
+# ---- Endpoint Fail-Safe (Fitur 11: Mode Fail-Safe & Testing) ----
+
+@router.get("/fail-safe/status")
+def failsafe_status(db: Session = Depends(get_db), _=Depends(_both)):
+    """Status mode operasi seluruh persimpangan: ADAPTIF_AI vs FAIL_SAFE."""
+    return svc.get_failsafe_status(db)
+
+
+@router.post("/fail-safe/{id_persimpangan}")
+def execute_failsafe(id_persimpangan: int, fixed_green: int | None = None, db: Session = Depends(get_db), _=Depends(_both)):
+    """Picu satu siklus mode Fail-Safe (fixed-timer konvensional) untuk persimpangan."""
+    p = db.get(Persimpangan, id_persimpangan)
+    if p is None:
+        raise HTTPException(404, "Persimpangan tidak ditemukan.")
+    return svc.run_failsafe_cycle(db, p, fixed_green=fixed_green)

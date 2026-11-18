@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SINAPSIS - Permintaan Rute Darurat</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+  <style>
+    .page-emergency { max-width: 780px; margin: 0 auto; padding: 24px; }
+    .page-emergency h1 { font-size: 20px; margin: 0 0 4px; }
+    .card { background: #fff; border: 1px solid #dcdcd6; border-radius: 8px; padding: 24px; margin-bottom: 20px; }
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; color: #1f2328; margin-bottom: 6px; }
+    .form-group input, .form-group select {
+      width: 100%; padding: 10px 12px; font: inherit; border: 1px solid #dcdcd6;
+      border-radius: 6px; background: #f6f6f3; color: #1f2328; outline: none;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: #b3112b; background: #fff; }
+    .form-row { display: flex; gap: 16px; }
+    .form-row .form-group { flex: 1; }
+    .btn-search {
+      padding: 10px 28px; font: inherit; font-weight: 700; background: #b3112b;
+      color: #fff; border: 0; border-radius: 6px; cursor: pointer;
+    }
+    .btn-search:hover { background: #8c0d22; }
+    .btn-search:disabled { opacity: .6; cursor: wait; }
+    .btn-activate {
+      padding: 10px 24px; font: inherit; font-weight: 700; background: #2f7d4a;
+      color: #fff; border: 0; border-radius: 6px; cursor: pointer; margin-top: 12px;
+    }
+    .btn-activate:hover { background: #246b3d; }
+    .btn-activate:disabled { opacity: .6; cursor: wait; }
+    .alert { margin-top: 14px; padding: 10px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; text-align: center; }
+    .alert-success { background: #e8f3ec; border: 1px solid #b9dcc4; color: #2f7d4a; }
+    .alert-error { background: #fdf1f3; border: 1px solid #e7b3bc; color: #b3112b; }
+    .alert-info { background: #e8f0fa; border: 1px solid #b3cae7; color: #1a4a7a; }
+    .alert[hidden] { display: none; }
+    .route-result { background: #f6f6f3; border: 1px solid #dcdcd6; border-radius: 6px; padding: 16px; margin-top: 16px; }
+    .route-result h3 { margin: 0 0 8px; font-size: 15px; }
+    .route-result .route-path { font-size: 14px; color: #1f2328; font-weight: 600; margin: 8px 0; }
+    .route-result .route-path span { display: inline-block; padding: 4px 10px; background: #fff; border: 1px solid #dcdcd6; border-radius: 4px; margin: 2px 4px 2px 0; }
+    .route-result .route-path .arrow { background: none; border: none; padding: 0 2px; color: #667085; font-weight: 400; }
+    .route-result .meta { font-size: 13px; color: #667085; }
+    .route-result[hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">SINAPSIS</span>
+      <span class="brand-sub">Dinas Perhubungan · Permintaan Darurat</span>
+    </div>
+    <nav class="nav" id="navbar" aria-label="Navigasi utama">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/emergency/request" class="active" aria-current="page">Permintaan Darurat</a>
+    </nav>
+    <div class="sysinfo">
+      <span id="userInfo" class="clock">--</span>
+      <a href="#" id="btnLogout" style="color:#fff;font-size:12px;text-decoration:underline;">Logout</a>
+    </div>
+  </header>
+
+  <div class="page-emergency">
+    <h1>Permintaan Rute Darurat</h1>
+    <p style="color:#667085;font-size:13px;margin:0 0 20px;">Cari rute darurat optimal untuk kendaraan prioritas melalui jaringan persimpangan SINAPSIS.</p>
+
+    <div class="card">
+      <form id="formRoute" autocomplete="off">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="lokasiAwal">Lokasi Awal</label>
+            <input type="text" id="lokasiAwal" placeholder="Contoh: RSUD Dr. Soetomo">
+          </div>
+          <div class="form-group">
+            <label for="tujuan">Lokasi Tujuan <span style="color:#b3112b;">*</span></label>
+            <input type="text" id="tujuan" placeholder="Contoh: Jalan Darmo" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="prioritas">Level Prioritas</label>
+          <select id="prioritas">
+            <option value="High">High (Ambulans / Pemadam)</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+
+        <button type="submit" id="btnSearch" class="btn-search">Cari Rute Optimal</button>
+      </form>
+
+      <div id="alertMsg" class="alert" hidden></div>
+
+      <div id="routeResult" class="route-result" hidden>
+        <h3 id="routeTitle">Rute Darurat Optimal Ditemukan</h3>
+        <div class="route-path" id="routePath"></div>
+        <div class="meta" id="routeMeta"></div>
+        <button type="button" id="btnActivate" class="btn-activate">Aktifkan Koridor Hijau</button>
+        <div id="activateMsg" class="alert" hidden></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    var token = localStorage.getItem('access_token');
+    var role = localStorage.getItem('user_role');
+    if (!token || role !== 'Petugas Lalu Lintas') {
+      window.location.href = '/login';
+      return;
+    }
+
+    document.getElementById('userInfo').textContent = localStorage.getItem('user_nama') || 'Petugas';
+
+    document.getElementById('btnLogout').addEventListener('click', function (e) {
+      e.preventDefault();
+      localStorage.clear();
+      window.location.href = '/login';
+    });
+
+    var currentRouteId = null;
+    var alertMsg = document.getElementById('alertMsg');
+    var routeResult = document.getElementById('routeResult');
+
+    function showAlert(msg, type) {
+      alertMsg.textContent = msg;
+      alertMsg.className = 'alert alert-' + type;
+      alertMsg.hidden = false;
+    }
+
+    function authHeaders() {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      };
+    }
+
+    // Search route
+    document.getElementById('formRoute').addEventListener('submit', function (e) {
+      e.preventDefault();
+      alertMsg.hidden = true;
+      routeResult.hidden = true;
+
+      var body = {
+        lokasi_awal: document.getElementById('lokasiAwal').value,
+        tujuan: document.getElementById('tujuan').value,
+        level_prioritas: document.getElementById('prioritas').value
+      };
+
+      if (!body.tujuan.trim()) {
+        showAlert('Lokasi tujuan wajib diisi!', 'error');
+        return;
+      }
+
+      document.getElementById('btnSearch').disabled = true;
+
+      fetch('/api/intersections/emergency-route', {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify(body)
+      })
+      .then(function (res) {
+        return res.json().then(function (b) { return { ok: res.ok, body: b }; });
+      })
+      .then(function (r) {
+        if (!r.ok) {
+          showAlert(r.body.detail || 'Rute tidak ditemukan.', 'error');
+          return;
+        }
+
+        currentRouteId = r.body.id_rute;
+        showAlert(r.body.pesan, 'success');
+
+        // Render route path
+        var pathEl = document.getElementById('routePath');
+        pathEl.innerHTML = '';
+        if (r.body.rute) {
+          r.body.rute.forEach(function (node, i) {
+            if (i > 0) {
+              var arrow = document.createElement('span');
+              arrow.className = 'arrow';
+              arrow.textContent = '→';
+              pathEl.appendChild(arrow);
+            }
+            var s = document.createElement('span');
+            s.textContent = node;
+            pathEl.appendChild(s);
+          });
+        }
+
+        document.getElementById('routeMeta').textContent =
+          'Estimasi: ' + r.body.estimasi_menit + ' menit · ' +
+          r.body.jumlah_persimpangan + ' persimpangan dilewati · ' +
+          'Prioritas: ' + r.body.level_prioritas;
+
+        document.getElementById('routeTitle').textContent = r.body.pesan;
+        routeResult.hidden = false;
+        document.getElementById('activateMsg').hidden = true;
+        document.getElementById('btnActivate').disabled = false;
+      })
+      .catch(function (err) {
+        showAlert('Gagal terhubung ke server: ' + err.message, 'error');
+      })
+      .finally(function () {
+        document.getElementById('btnSearch').disabled = false;
+      });
+    });
+
+    // Activate corridor
+    document.getElementById('btnActivate').addEventListener('click', function () {
+      if (!currentRouteId) return;
+      var btn = document.getElementById('btnActivate');
+      btn.disabled = true;
+      var actMsg = document.getElementById('activateMsg');
+
+      fetch('/api/intersections/emergency-route/' + currentRouteId + '/activate', {
+        method: 'POST', headers: authHeaders()
+      })
+      .then(function (res) {
+        return res.json().then(function (b) { return { ok: res.ok, body: b }; });
+      })
+      .then(function (r) {
+        actMsg.hidden = false;
+        if (!r.ok) {
+          actMsg.className = 'alert alert-error';
+          actMsg.textContent = r.body.detail || 'Gagal mengaktifkan koridor.';
+          btn.disabled = false;
+          return;
+        }
+        actMsg.className = 'alert alert-success';
+        actMsg.textContent = r.body.pesan; // "Koridor hijau darurat berhasil diaktifkan!"
+      })
+      .catch(function (err) {
+        actMsg.hidden = false;
+        actMsg.className = 'alert alert-error';
+        actMsg.textContent = 'Error: ' + err.message;
+        btn.disabled = false;
+      });
+    });
+  })();
+  </script>
+</body>
+</html>
+
