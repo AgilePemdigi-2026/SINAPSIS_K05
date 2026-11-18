@@ -4,14 +4,386 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>SINAPSIS Dashboard Pemantauan Lalu Lintas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css" />
     <link rel="stylesheet" href="/static/dashboard.css" />
+    <style>
+      :root {
+        --bg-white: #f8fafc;
+        --dishub-navy: #0b1947;
+        --dishub-blue: #0047ab;
+        --dishub-sky: #38bdf8;
+        --dishub-yellow: #facc15;
+        --ink: #0f172a;
+        --muted: #475569;
+        --glass-bg: rgba(255, 255, 255, 0.72);
+        --glass-border: rgba(255, 255, 255, 0.92);
+        --glass-shadow: 0 18px 42px -12px rgba(0, 71, 171, 0.13), 0 4px 12px rgba(15, 23, 42, 0.04);
+      }
+
+      body {
+        background-color: var(--bg-white) !important;
+        font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif !important;
+        color: var(--ink);
+        position: relative;
+        overflow-x: hidden;
+      }
+
+      h1, h2, h3, .logo, .kpi-val {
+        font-family: "Bricolage Grotesque", sans-serif !important;
+        letter-spacing: -0.025em;
+      }
+
+      /* ORGANIC LIVING MORPHING BLOBS */
+      .bg-blobs {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        overflow: hidden;
+        pointer-events: none;
+        background: radial-gradient(circle at 50% 0%, #ffffff 0%, #f1f5f9 100%);
+      }
+
+      .blob {
+        position: absolute;
+        filter: blur(72px);
+        will-change: transform, border-radius;
+      }
+
+      .blob-1 {
+        width: 520px;
+        height: 520px;
+        background: linear-gradient(135deg, #0047ab 0%, #38bdf8 100%);
+        opacity: 0.42;
+        top: -120px;
+        left: -90px;
+        animation: driftMorph1 9s ease-in-out infinite alternate;
+      }
+
+      .blob-2 {
+        width: 460px;
+        height: 460px;
+        background: linear-gradient(135deg, #facc15 0%, #fde047 100%);
+        opacity: 0.48;
+        top: 10%;
+        right: -80px;
+        animation: driftMorph2 11s ease-in-out infinite alternate;
+      }
+
+      .blob-3 {
+        width: 480px;
+        height: 480px;
+        background: linear-gradient(135deg, #3b82f6 0%, #fef08a 100%);
+        opacity: 0.36;
+        bottom: -140px;
+        left: 25%;
+        animation: driftMorph3 13s ease-in-out infinite alternate;
+      }
+
+      @keyframes driftMorph1 {
+        0% {
+          border-radius: 38% 62% 68% 32% / 44% 42% 58% 56%;
+          transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+        }
+        50% {
+          border-radius: 72% 28% 38% 62% / 28% 70% 30% 72%;
+          transform: translate3d(130px, 70px, 0) rotate(24deg) scale(1.14);
+        }
+        100% {
+          border-radius: 45% 55% 62% 38% / 64% 34% 66% 36%;
+          transform: translate3d(40px, 150px, 0) rotate(-18deg) scale(0.94);
+        }
+      }
+
+      @keyframes driftMorph2 {
+        0% {
+          border-radius: 64% 36% 42% 58% / 52% 64% 36% 48%;
+          transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+        }
+        50% {
+          border-radius: 32% 68% 66% 34% / 68% 32% 68% 32%;
+          transform: translate3d(-140px, 90px, 0) rotate(-26deg) scale(1.16);
+        }
+        100% {
+          border-radius: 56% 44% 36% 64% / 36% 58% 42% 64%;
+          transform: translate3d(-60px, -70px, 0) rotate(16deg) scale(0.95);
+        }
+      }
+
+      @keyframes driftMorph3 {
+        0% {
+          border-radius: 46% 54% 38% 62% / 58% 42% 58% 42%;
+          transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+        }
+        50% {
+          border-radius: 66% 34% 60% 40% / 34% 66% 34% 66%;
+          transform: translate3d(110px, -95px, 0) rotate(20deg) scale(1.12);
+        }
+        100% {
+          border-radius: 36% 64% 48% 52% / 62% 38% 62% 38%;
+          transform: translate3d(-90px, -40px, 0) rotate(-22deg) scale(0.96);
+        }
+      }
+
+      /* FLOATING GLASS TOPBAR */
+      header.topbar {
+        position: sticky !important;
+        top: 14px;
+        z-index: 50;
+        max-width: 1400px;
+        margin: 14px auto 16px !important;
+        padding: 10px 22px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 16px !important;
+        background: rgba(255, 255, 255, 0.78) !important;
+        backdrop-filter: blur(22px) saturate(160%);
+        -webkit-backdrop-filter: blur(22px) saturate(160%);
+        border: 1.5px solid var(--glass-border) !important;
+        border-radius: 999px !important;
+        box-shadow: 0 12px 32px -8px rgba(0, 71, 171, 0.14) !important;
+        color: var(--dishub-navy) !important;
+      }
+
+      header.topbar .brand {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 12px !important;
+        flex-shrink: 0;
+      }
+
+      .dishub-badge-dot {
+        width: 38px;
+        height: 38px;
+        border-radius: 13px;
+        background: linear-gradient(135deg, var(--dishub-blue), var(--dishub-navy));
+        color: var(--dishub-yellow);
+        display: grid;
+        place-items: center;
+        font-family: "Bricolage Grotesque", sans-serif;
+        font-weight: 800;
+        font-size: 18px;
+        box-shadow: 0 6px 14px rgba(0, 71, 171, 0.25);
+        position: relative;
+        flex-shrink: 0;
+      }
+
+      .dishub-badge-dot::after {
+        content: "";
+        position: absolute;
+        bottom: -2px;
+        right: -2px;
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: var(--dishub-yellow);
+        border: 2px solid #fff;
+      }
+
+      .brand-text {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        line-height: 1.2;
+      }
+
+      header.topbar .logo {
+        color: var(--dishub-navy) !important;
+        font-weight: 800 !important;
+        font-size: 1.15rem !important;
+        margin: 0 !important;
+      }
+
+      header.topbar .brand-sub {
+        color: var(--muted) !important;
+        font-size: 0.76rem !important;
+        margin-top: 2px;
+      }
+
+      nav.nav {
+        background: rgba(241, 245, 249, 0.85);
+        padding: 5px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      nav.nav a {
+        color: var(--muted) !important;
+        border-radius: 999px !important;
+        padding: 8px 16px !important;
+        font-weight: 600 !important;
+        font-size: 0.85rem !important;
+        white-space: nowrap;
+        transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1) !important;
+      }
+
+      nav.nav a:hover {
+        background: rgba(255, 255, 255, 0.85) !important;
+        color: var(--dishub-blue) !important;
+      }
+
+      nav.nav a.active {
+        background: linear-gradient(135deg, var(--dishub-blue), var(--dishub-navy)) !important;
+        color: #ffffff !important;
+        box-shadow: 0 6px 16px rgba(0, 71, 171, 0.25);
+      }
+
+      header.topbar .sysinfo {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 10px !important;
+      }
+
+      .sysinfo .clock {
+        color: var(--dishub-navy) !important;
+        font-weight: 700;
+        font-size: 0.82rem;
+      }
+
+      .sysinfo .sysstate {
+        background: #fef9c3 !important;
+        color: #854d0e !important;
+        border: 1px solid rgba(250, 204, 21, 0.65);
+        border-radius: 999px !important;
+        padding: 4px 12px !important;
+        font-weight: 700;
+      }
+
+      #userRole {
+        color: var(--dishub-blue) !important;
+        opacity: 1 !important;
+        font-weight: 700;
+      }
+
+      /* GLASS STATUSBAR & BENTO PANELS */
+      .statusbar,
+      #banners,
+      main.page,
+      footer.footer {
+        position: relative;
+        z-index: 2;
+        max-width: 1400px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .statusbar {
+        background: var(--glass-bg) !important;
+        backdrop-filter: blur(20px) saturate(150%);
+        -webkit-backdrop-filter: blur(20px) saturate(150%);
+        border: 1.5px solid var(--glass-border) !important;
+        border-radius: 22px !important;
+        box-shadow: 0 10px 26px -8px rgba(0, 71, 171, 0.09);
+        margin-bottom: 18px !important;
+        padding: 12px 20px !important;
+      }
+
+      .panel,
+      .kpi-card,
+      .kpis > div {
+        background: var(--glass-bg) !important;
+        backdrop-filter: blur(22px) saturate(150%);
+        -webkit-backdrop-filter: blur(22px) saturate(150%);
+        border: 1.5px solid var(--glass-border) !important;
+        border-radius: 26px !important;
+        box-shadow: var(--glass-shadow) !important;
+        transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s ease, box-shadow 0.3s ease;
+      }
+
+      .panel:hover,
+      .kpis > div:hover {
+        border-color: rgba(250, 204, 21, 0.75) !important;
+        box-shadow: 0 22px 46px -14px rgba(0, 71, 171, 0.16) !important;
+      }
+
+      /* BUTTONS & SELECTS */
+      .btn {
+        background: linear-gradient(135deg, var(--dishub-blue) 0%, var(--dishub-navy) 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 999px !important;
+        padding: 9px 18px !important;
+        font-weight: 700 !important;
+        box-shadow: 0 8px 18px -5px rgba(0, 71, 171, 0.38);
+        transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease !important;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 12px 24px -6px rgba(0, 71, 171, 0.48);
+      }
+
+      .btn-outline {
+        border-radius: 999px !important;
+        border: 1.5px solid rgba(0, 71, 171, 0.25) !important;
+        background: rgba(255, 255, 255, 0.85) !important;
+        color: var(--dishub-navy) !important;
+        font-weight: 700 !important;
+      }
+
+      select {
+        border-radius: 14px !important;
+        border: 1.5px solid #cbd5e1 !important;
+        background: rgba(255, 255, 255, 0.9) !important;
+        padding: 7px 12px !important;
+        font-family: "Plus Jakarta Sans", sans-serif !important;
+        font-weight: 600;
+        color: var(--dishub-navy);
+      }
+
+      .diagram,
+      #dashboardMap {
+        border-radius: 20px !important;
+        overflow: hidden;
+      }
+
+      footer.footer {
+        background: var(--glass-bg);
+        backdrop-filter: blur(18px);
+        border: 1.5px solid var(--glass-border);
+        border-radius: 999px;
+        padding: 12px 24px !important;
+        margin-top: 20px;
+        margin-bottom: 18px;
+      }
+
+      @media (max-width: 960px) {
+        header.topbar {
+          flex-wrap: wrap !important;
+          border-radius: 24px !important;
+          margin: 10px 12px !important;
+        }
+        footer.footer {
+          border-radius: 20px;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div class="bg-blobs">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+      <div class="blob blob-3"></div>
+    </div>
+
     <header class="topbar">
       <div class="brand">
-        <span class="logo">SINAPSIS</span>
-        <span class="brand-sub">Dinas Perhubungan · Telemetri lalu lintas</span>
+        <div class="dishub-badge-dot">S</div>
+        <div class="brand-text">
+          <span class="logo">SINAPSIS</span>
+          <span class="brand-sub">Dinas Perhubungan · Telemetri lalu lintas</span>
+        </div>
       </div>
       <nav class="nav" id="navbar" aria-label="Navigasi utama">
         <a href="/dashboard" class="active" aria-current="page">Dashboard</a>
@@ -21,11 +393,7 @@
       <div class="sysinfo">
         <span id="clock" class="clock">--</span>
         <span id="sysState" class="sysstate">Memuat</span>
-        <span
-          id="userRole"
-          class="muted"
-          style="color: #fff; opacity: 0.8; font-size: 11px"
-        ></span>
+        <span id="userRole" class="muted" style="font-size: 11.5px"></span>
       </div>
     </header>
 
@@ -58,12 +426,6 @@
         hidden
       ></div>
       <div id="bannerSensor" class="banner banner-sensor" hidden></div>
-      <div
-        id="bannerCorridor"
-        class="banner banner-corridor"
-        role="status"
-        hidden
-      ></div>
       <div id="bannerError" class="banner banner-error" hidden></div>
       <div id="toast" class="toast" hidden></div>
     </div>
@@ -135,32 +497,6 @@
         </aside>
       </div>
 
-      <section class="panel gis" aria-labelledby="gisTitle">
-        <div class="panel-head">
-          <h2 id="gisTitle">Peta persimpangan (GIS)</h2>
-          <span id="gisCount" class="muted"></span>
-        </div>
-        <div id="gisChip" class="gm-chip" hidden aria-live="polite"></div>
-        <div class="gis-body">
-          <div
-            id="gisMap"
-            class="gis-map"
-            role="application"
-            aria-label="Peta lokasi persimpangan dan koridor hijau"
-          ></div>
-          <div id="gisList" class="gm-list" aria-label="Daftar titik persimpangan"></div>
-        </div>
-        <p id="gisNote" class="note" hidden></p>
-        <ul class="gm-legend" aria-label="Keterangan peta">
-          <li><i style="background: #2f7d4a"></i>Lancar</li>
-          <li><i style="background: #114eab"></i>Padat</li>
-          <li><i style="background: #b3112b"></i>Kritis</li>
-          <li><i style="background: #6b7280"></i>Sensor offline</li>
-          <li><i style="background: #94a3b8"></i>Belum ada data</li>
-          <li><i class="gm-legend-line"></i>Koridor hijau (mode darurat)</li>
-        </ul>
-      </section>
-
       <section class="panel telemetry" aria-labelledby="telTitle">
         <div class="panel-head">
           <h2 id="telTitle">Ringkasan per persimpangan</h2>
@@ -171,7 +507,6 @@
             <thead>
               <tr>
                 <th>Persimpangan</th>
-                <th>Koordinat</th>
                 <th class="num">Total kendaraan</th>
                 <th>Jalur terpadat</th>
                 <th class="num">Densitas maks</th>
@@ -195,8 +530,8 @@
     </footer>
 
     <script src="/static/vendor/leaflet/leaflet.js"></script>
-    <script src="/static/dashboard_map.js"></script>
     <script src="/static/traffic_anim.js"></script>
+    <script src="/static/dashboard_map.js"></script>
     <script src="/static/dashboard.js"></script>
     <script>
       /* RBAC Navigation - Ryan (GIS) */
