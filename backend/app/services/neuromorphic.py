@@ -169,3 +169,55 @@ class IntersectionEngine:
             "prediction_used": predicted is not None,
             "lanes": lanes,
         }
+
+    def fail_safe_step(self, params: Params, fixed_green: int | None = None) -> dict:
+        """
+        Langkah mode Fail-Safe ketika sensor offline / data tidak tersedia (SRS 5.2).
+        Menerapkan jadwal fixed-timer konvensional bergilir (round-robin):
+        - Tepat satu jalur mendapatkan HIJAU secara bergantian per siklus.
+        - Jalur lainnya MERAH (Interlocking Safety: tidak ada 2 jalur hijau bersamaan).
+        - Durasi hijau konvensional tetap (fixed duration).
+        - Potensial membran diistirahatkan (decay ke 0).
+        """
+        self.cycle += 1
+        n_lanes = len(self.neurons)
+        active_lane = (self.cycle - 1) % n_lanes
+        green_duration = fixed_green or params.min_green or 20
+
+        lanes = []
+        for i, n in enumerate(self.neurons):
+            n.vm = max(0.0, n.vm - settings.LEAK)
+            n.spike = False
+            n.spike_strength = 0.0
+
+            is_active = (i == active_lane)
+            signal = "HIJAU" if is_active else "MERAH"
+            reason = (
+                f"Mode Fail-Safe: Jalur aktif rotasi fixed-timer ({i+1}/{n_lanes})"
+                if is_active
+                else "Mode Fail-Safe: Menunggu giliran (Interlocking Safety)"
+            )
+            lanes.append({
+                "lane_index": i,
+                "vehicle_count": 0,
+                "membrane_potential": round(n.vm, 4),
+                "spike": False,
+                "threshold": params.spike_threshold,
+                "predicted_ratio": None,
+                "priority_rank": 1 if is_active else (i + 2 if i < active_lane else i + 1),
+                "priority_score": 1.0 if is_active else 0.0,
+                "signal": signal,
+                "duration": green_duration,
+                "reason": reason,
+            })
+
+        return {
+            "cycle": self.cycle,
+            "period": "FAIL_SAFE_FIXED_TIMER",
+            "threshold": params.spike_threshold,
+            "critical_lanes": [],
+            "corridor_active": False,
+            "prediction_used": False,
+            "fail_safe_active": True,
+            "lanes": lanes,
+        }

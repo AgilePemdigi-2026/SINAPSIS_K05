@@ -10,6 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css" />
     <link rel="stylesheet" href="/static/dashboard.css" />
     <style>
       :root {
@@ -38,7 +39,7 @@
         letter-spacing: -0.025em;
       }
 
-      /* ORGANIC LIVING MORPHING BLOBS (Gerak Aktif + Berubah Bentuk) */
+      /* ORGANIC LIVING MORPHING BLOBS */
       .bg-blobs {
         position: fixed;
         inset: 0;
@@ -129,7 +130,7 @@
         }
       }
 
-      /* FLOATING GLASS TOPBAR (Perbaikan Logo Kiri Atas Sejajar Rapi) */
+      /* FLOATING GLASS TOPBAR */
       header.topbar {
         position: sticky !important;
         top: 14px;
@@ -341,7 +342,8 @@
         color: var(--dishub-navy);
       }
 
-      .diagram {
+      .diagram,
+      #dashboardMap {
         border-radius: 20px !important;
         overflow: hidden;
       }
@@ -527,7 +529,9 @@
       <span id="latency">Latensi API: --</span>
     </footer>
 
+    <script src="/static/vendor/leaflet/leaflet.js"></script>
     <script src="/static/traffic_anim.js"></script>
+    <script src="/static/dashboard_map.js"></script>
     <script src="/static/dashboard.js"></script>
     <script>
       /* RBAC Navigation - Ryan (GIS) */

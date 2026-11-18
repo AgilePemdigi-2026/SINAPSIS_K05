@@ -14,4 +14,5 @@ from app.models.intersection import (  # noqa: F401
     KeputusanSinyal,
     SimulasiSkenario,
     KonfigurasiSistem,
+    NotifikasiAlert,
 )

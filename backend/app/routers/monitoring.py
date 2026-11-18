@@ -1,4 +1,4 @@
-"""Fitur Pantau Kondisi Lalu Lintas (REQ-7..10): dashboard, refresh, siklus manual, riwayat."""
+"""Fitur Pantau Kondisi Lalu Lintas (REQ-7..10): dashboard, refresh, siklus manual, riwayat, alert."""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -8,61 +8,20 @@ from app.core.security import ROLE_ADMIN, ROLE_PETUGAS, optional_roles, require_
 from app.models import Deteksi, Jalur, KeputusanSinyal, Persimpangan
 from app.schemas import ManualCycleRequest
 from app.services import monitoring_service as svc
-from app.services.green_corridor_service import (
-    ACTIVE_CORRIDORS,
-    INTERSECTION_OVERRIDES,
-    get_intersection_override,
-)
+from app.services import alert_service
 
 router = APIRouter(prefix="/api/monitoring", tags=["Pantau Lalu Lintas"])
 _both = require_roles(ROLE_ADMIN, ROLE_PETUGAS)
 _view = optional_roles(ROLE_ADMIN, ROLE_PETUGAS)  # terbuka tanpa login saat DASHBOARD_PUBLIC=true
 
 
-def _apply_green_corridor_sync(payload: dict) -> dict:
-    """Menyinkronkan status override Green Corridor ke data persimpangan untuk Dashboard & GIS."""
-    if not isinstance(payload, dict):
-        return payload
-
-    payload["green_corridor"] = {
-        "active_count": len(ACTIVE_CORRIDORS),
-        "active_corridors": list(ACTIVE_CORRIDORS.values()),
-        "overrides": INTERSECTION_OVERRIDES,
-    }
-
-    # Cari list persimpangan di dalam payload dashboard (mendukung key 'persimpangan' atau 'intersections')
-    items = payload.get("persimpangan") or payload.get("intersections") or []
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        raw_id = item.get("kode") or item.get("id_persimpangan") or item.get("id")
-        if raw_id is None:
-            continue
-
-        # Cek kecocokan ID langsung (mis. "SIMPANG-01") atau format numerik (mis. 1 -> "SIMPANG-01")
-        candidates = [str(raw_id).strip().upper()]
-        if str(raw_id).isdigit():
-            candidates.append(f"SIMPANG-{int(raw_id):02d}")
-
-        override = next((get_intersection_override(c) for c in candidates if get_intersection_override(c)), None)
-        if override:
-            item["mode_kontrol"] = "EMERGENCY_OVERRIDE"
-            item["status_lampu"] = "GREEN"
-            item["green_corridor_override"] = override
-            # Timpa status lampu per jalur/arm jika tersedia di dict simpang
-            for arm in item.get("jalur", []) or item.get("arms", []):
-                if isinstance(arm, dict):
-                    arm["warna_sinyal"] = "GREEN"
-                    arm["status"] = "GREEN"
-        else:
-            item.setdefault("mode_kontrol", "AI_ADAPTIVE")
-
-    return payload
-
-
 @router.get("/dashboard")
 def get_dashboard(db: Session = Depends(get_db), _=Depends(_view)):
-    return _apply_green_corridor_sync(svc.dashboard(db))
+    data = svc.dashboard(db)
+    # Generate alert otomatis dari data dashboard
+    alert_service.generate_alerts(db, data)
+    data["alert_summary"] = alert_service.get_alert_summary(db)
+    return data
 
 
 @router.post("/refresh")
@@ -70,8 +29,11 @@ def refresh(db: Session = Depends(get_db), _=Depends(_view)):
     """Muat ulang data: jalankan satu siklus di semua persimpangan; coba sambung ulang sensor."""
     for p in db.scalars(select(Persimpangan)).all():
         svc.run_cycle(db, p)
-    data = _apply_green_corridor_sync(svc.dashboard(db))
+    data = svc.dashboard(db)
     data["pesan"] = "Data lalu lintas berhasil dimuat ulang."
+    # Generate alert otomatis dari data dashboard
+    alert_service.generate_alerts(db, data)
+    data["alert_summary"] = alert_service.get_alert_summary(db)
     return data
 
 
@@ -86,11 +48,6 @@ def run_one_cycle(req: ManualCycleRequest, db: Session = Depends(get_db), _=Depe
     result = svc.run_cycle(db, p, req.vehicle_counts, req.simulated_hour)
     if result is None:
         raise HTTPException(503, "Data pemantauan tidak tersedia untuk beberapa simpang.")
-
-    override = get_intersection_override(f"SIMPANG-{p.id_persimpangan:02d}") or get_intersection_override(str(p.id_persimpangan))
-    if override and isinstance(result, dict):
-        result["mode_kontrol"] = "EMERGENCY_OVERRIDE"
-        result["green_corridor_override"] = override
     return result
 
 
@@ -108,3 +65,45 @@ def history(id_persimpangan: int, limit: int = 20, db: Session = Depends(get_db)
         "deteksi": [{"id_jalur": d.id_jalur, "waktu": d.waktu_deteksi.isoformat(), "jumlah_kendaraan": d.jumlah_kendaraan} for d in dets],
         "keputusan": [{"id_jalur": k.id_jalur, "waktu": k.waktu_keputusan.isoformat(), "warna": k.warna_sinyal, "durasi": k.durasi_detik} for k in decs],
     }
+
+
+# ---- Endpoint Alert (Fitur 10: Congestion Alert & Sensor Offline) ----
+
+@router.get("/alerts")
+def get_alerts(db: Session = Depends(get_db), _=Depends(_both)):
+    """Ambil semua alert aktif (belum di-acknowledge)."""
+    alerts = alert_service.get_active_alerts(db)
+    summary = alert_service.get_alert_summary(db)
+    return {"alerts": alerts, "summary": summary}
+
+
+@router.get("/alerts/history")
+def get_alerts_history(limit: int = 50, db: Session = Depends(get_db), _=Depends(_both)):
+    """Riwayat semua alert (aktif maupun sudah ditangani)."""
+    return {"alerts": alert_service.get_alert_history(db, limit)}
+
+
+@router.post("/alerts/{alert_id}/acknowledge")
+def acknowledge(alert_id: int, db: Session = Depends(get_db), user=Depends(_both)):
+    """Tandai alert sebagai sudah ditangani oleh petugas."""
+    result = alert_service.acknowledge_alert(db, alert_id, user.id_pengguna)
+    if result is None:
+        raise HTTPException(404, "Alert tidak ditemukan.")
+    return {"pesan": "Alert berhasil di-acknowledge.", "alert": result}
+
+
+# ---- Endpoint Fail-Safe (Fitur 11: Mode Fail-Safe & Testing) ----
+
+@router.get("/fail-safe/status")
+def failsafe_status(db: Session = Depends(get_db), _=Depends(_both)):
+    """Status mode operasi seluruh persimpangan: ADAPTIF_AI vs FAIL_SAFE."""
+    return svc.get_failsafe_status(db)
+
+
+@router.post("/fail-safe/{id_persimpangan}")
+def execute_failsafe(id_persimpangan: int, fixed_green: int | None = None, db: Session = Depends(get_db), _=Depends(_both)):
+    """Picu satu siklus mode Fail-Safe (fixed-timer konvensional) untuk persimpangan."""
+    p = db.get(Persimpangan, id_persimpangan)
+    if p is None:
+        raise HTTPException(404, "Persimpangan tidak ditemukan.")
+    return svc.run_failsafe_cycle(db, p, fixed_green=fixed_green)
