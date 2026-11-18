@@ -1,4 +1,8 @@
-"""Registrasi, Lupa Password, dan Reset Password (F7) + pastikan satu sistem akun dipakai semua fitur."""
+"""Akun dibuat dari pusat (tanpa registrasi publik), Lupa Password, dan Reset Password (F7).
+
+Evaluasi Sprint 3: registrasi mandiri dihapus. Akun hanya dibuat oleh Administrator pusat lewat
+POST /api/auth/admin/users, dan role-nya selalu Petugas Lalu Lintas (tidak ada pilihan role).
+"""
 from datetime import timedelta
 
 import pytest
@@ -9,47 +13,58 @@ from app.core.timeutil import utcnow
 from app.models import Pengguna
 
 NEW = {"full_name": "Petugas Baru", "username": "petugas_baru", "password": "Rahasia2026"}
+CREATE = "/api/auth/admin/users"
 
 
 def _login(client, username, password):
     return client.post("/api/auth/login", json={"username": username, "password": password})
 
 
-def test_register_petugas_then_login(client):
-    r = client.post("/api/auth/register", json=NEW)
+def test_public_register_endpoint_is_removed(client):
+    """Tidak ada lagi pendaftaran mandiri: endpoint lama tidak ada, dan tidak ada akun yang terbentuk."""
+    assert client.post("/api/auth/register", json=NEW).status_code in (404, 405)
+    assert _login(client, "petugas_baru", "Rahasia2026").status_code == 401
+
+
+def test_admin_creates_petugas_then_login(client, admin):
+    r = client.post(CREATE, json=NEW, headers=admin)
     assert r.status_code == 201 and r.json()["role"] == "Petugas Lalu Lintas"
     login = _login(client, "petugas_baru", "Rahasia2026")
     assert login.status_code == 200 and login.json()["role"] == "Petugas Lalu Lintas"
 
 
-def test_token_from_login_is_accepted_by_other_features(client):
+def test_token_from_login_is_accepted_by_other_features(client, admin):
     """Regresi: token hasil login harus dikenali endpoint dashboard (dulu 401 karena dua sistem login)."""
-    client.post("/api/auth/register", json=NEW)
+    client.post(CREATE, json=NEW, headers=admin)
     token = _login(client, "petugas_baru", "Rahasia2026").json()["access_token"]
     r = client.get("/api/monitoring/dashboard", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200
 
 
-def test_register_password_is_hashed(client):
-    client.post("/api/auth/register", json=NEW)
+def test_created_password_is_hashed(client, admin):
+    client.post(CREATE, json=NEW, headers=admin)
     with SessionLocal() as db:
         u = db.query(Pengguna).filter_by(username="petugas_baru").one()
         assert u.password.startswith("$2") and "Rahasia2026" not in u.password
 
 
-def test_register_admin_without_login_is_forbidden(client):
-    r = client.post("/api/auth/register", json={**NEW, "role": "admin"})
-    assert r.status_code == 403
+def test_create_account_without_login_is_rejected(client):
+    assert client.post(CREATE, json=NEW).status_code == 401
     assert _login(client, "petugas_baru", "Rahasia2026").status_code == 401  # akun tidak terbentuk
 
 
-def test_register_admin_by_petugas_is_forbidden(client, petugas):
-    assert client.post("/api/auth/register", json={**NEW, "role": "admin"}, headers=petugas).status_code == 403
+def test_create_account_by_petugas_is_forbidden(client, petugas):
+    assert client.post(CREATE, json=NEW, headers=petugas).status_code == 403
+    assert _login(client, "petugas_baru", "Rahasia2026").status_code == 401
 
 
-def test_register_admin_by_admin_is_allowed(client, admin):
-    r = client.post("/api/auth/register", json={**NEW, "role": "Administrator"}, headers=admin)
-    assert r.status_code == 201 and r.json()["role"] == "Administrator"
+@pytest.mark.parametrize("role", ["admin", "Administrator", "superuser"])
+def test_role_in_payload_is_ignored_account_is_always_petugas(client, admin, role):
+    """Tidak ada pilihan role: field role dari klien diabaikan, akun baru selalu Petugas."""
+    r = client.post(CREATE, json={**NEW, "role": role}, headers=admin)
+    assert r.status_code == 201 and r.json()["role"] == "Petugas Lalu Lintas"
+    with SessionLocal() as db:
+        assert db.query(Pengguna).filter_by(username="petugas_baru").one().role == "Petugas Lalu Lintas"
 
 
 @pytest.mark.parametrize("payload,status", [
@@ -57,14 +72,21 @@ def test_register_admin_by_admin_is_allowed(client, admin):
     ({**NEW, "password": "pendek"}, 422),
     ({**NEW, "password": "tanpakapital1"}, 422),
     ({**NEW, "username": "a b"}, 422),
-    ({**NEW, "role": "superuser"}, 422),
+    ({**NEW, "full_name": ""}, 422),
 ])
-def test_register_validation(client, payload, status):
-    assert client.post("/api/auth/register", json=payload).status_code == status
+def test_create_account_validation(client, admin, payload, status):
+    assert client.post(CREATE, json=payload, headers=admin).status_code == status
 
 
-def test_register_duplicate_username(client):
-    assert client.post("/api/auth/register", json={**NEW, "username": "admin_sinapsis"}).status_code == 409
+def test_create_account_duplicate_username(client, admin):
+    assert client.post(CREATE, json={**NEW, "username": "admin_sinapsis"}, headers=admin).status_code == 409
+
+
+def test_only_admin_can_list_accounts(client, admin, petugas):
+    r = client.get(CREATE, headers=admin)
+    assert r.status_code == 200 and {u["username"] for u in r.json()["users"]} >= {"admin_sinapsis", "petugas_lalin01"}
+    assert client.get(CREATE, headers=petugas).status_code == 403
+    assert client.get(CREATE).status_code == 401
 
 
 def _forgot(client, username):
