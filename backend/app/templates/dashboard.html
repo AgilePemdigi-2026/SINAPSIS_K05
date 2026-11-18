@@ -426,6 +426,12 @@
         hidden
       ></div>
       <div id="bannerSensor" class="banner banner-sensor" hidden></div>
+      <div
+        id="bannerCorridor"
+        class="banner banner-corridor"
+        role="status"
+        hidden
+      ></div>
       <div id="bannerError" class="banner banner-error" hidden></div>
       <div id="toast" class="toast" hidden></div>
     </div>
@@ -497,6 +503,32 @@
         </aside>
       </div>
 
+      <section class="panel gis" aria-labelledby="gisTitle">
+        <div class="panel-head">
+          <h2 id="gisTitle">Peta persimpangan (GIS)</h2>
+          <span id="gisCount" class="muted"></span>
+        </div>
+        <div id="gisChip" class="gm-chip" hidden aria-live="polite"></div>
+        <div class="gis-body">
+          <div
+            id="gisMap"
+            class="gis-map"
+            role="application"
+            aria-label="Peta lokasi persimpangan dan koridor hijau"
+          ></div>
+          <div id="gisList" class="gm-list" aria-label="Daftar titik persimpangan"></div>
+        </div>
+        <p id="gisNote" class="note" hidden></p>
+        <ul class="gm-legend" aria-label="Keterangan peta">
+          <li><i style="background: #2f7d4a"></i>Lancar</li>
+          <li><i style="background: #114eab"></i>Padat</li>
+          <li><i style="background: #b3112b"></i>Kritis</li>
+          <li><i style="background: #6b7280"></i>Sensor offline</li>
+          <li><i style="background: #94a3b8"></i>Belum ada data</li>
+          <li><i class="gm-legend-line"></i>Koridor hijau (mode darurat)</li>
+        </ul>
+      </section>
+
       <section class="panel telemetry" aria-labelledby="telTitle">
         <div class="panel-head">
           <h2 id="telTitle">Ringkasan per persimpangan</h2>
@@ -507,6 +539,7 @@
             <thead>
               <tr>
                 <th>Persimpangan</th>
+                <th>Koordinat</th>
                 <th class="num">Total kendaraan</th>
                 <th>Jalur terpadat</th>
                 <th class="num">Densitas maks</th>
