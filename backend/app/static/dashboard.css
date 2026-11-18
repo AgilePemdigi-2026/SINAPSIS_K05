@@ -833,3 +833,347 @@ tr.stale td {
   fill: #0f0945;
   opacity: 0.75;
 }
+
+/* ---------- indikator memuat (skeleton) ---------- */
+.skel {
+  position: relative;
+  overflow: hidden;
+  background: #e3e9f5;
+  border-radius: 6px;
+}
+.skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  transform: translateX(-100%);
+  animation: skelShimmer 1.3s ease-in-out infinite;
+}
+@keyframes skelShimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+.skel-line {
+  height: 12px;
+  margin: 8px 0;
+}
+.skel-line.big {
+  height: 26px;
+}
+.skel-line.w40 {
+  width: 40%;
+}
+.skel-line.w60 {
+  width: 60%;
+}
+.skel-line.w80 {
+  width: 80%;
+}
+.skel-row {
+  height: 40px;
+  margin-bottom: 8px;
+}
+.skel-diagram {
+  height: 340px;
+  border-radius: 0;
+}
+.skel-label {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+.kpi-skel {
+  min-height: 92px;
+}
+.skel-tr td {
+  padding: 10px 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel::after {
+    animation: none;
+  }
+}
+
+/* ---------- peta GIS ---------- */
+.gis-body {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
+  gap: 14px;
+  margin-top: 10px;
+}
+.gis-map {
+  position: relative;
+  height: 400px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #e1e8f4;
+  z-index: 0;
+}
+.gis-map.loading::after {
+  content: "Memuat peta dan data persimpangan…";
+  position: absolute;
+  inset: 0;
+  z-index: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(90deg, #e3e9f5 25%, #f1f4fb 50%, #e3e9f5 75%);
+  background-size: 200% 100%;
+  animation: skelBg 1.4s ease-in-out infinite;
+  color: var(--muted);
+  font-size: 13px;
+}
+@keyframes skelBg {
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gis-map.loading::after {
+    animation: none;
+  }
+}
+.gm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.gm-item {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.gm-item:hover,
+.gm-item.selected {
+  border-color: var(--blue);
+  background: #eef3fb;
+}
+.gm-item i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.gm-item-t,
+.gm-item-s {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.gm-item-s {
+  align-items: flex-end;
+  font-size: 12px;
+  font-weight: 600;
+}
+.gm-item small {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 11px;
+}
+.gm-item.cor {
+  border-color: #16a34a;
+  background: #ecf8f0;
+}
+.gm-chip {
+  margin-top: 10px;
+  border: 1px solid #16a34a;
+  background: #ecf8f0;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.gm-chip[hidden] {
+  display: none;
+}
+.gm-chip-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.gm-chip-badge,
+.corridor-badge strong {
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.gm-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--muted);
+}
+.gm-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gm-legend i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+}
+.gm-legend .gm-legend-line {
+  width: 22px;
+  height: 5px;
+  border-radius: 3px;
+  background: #16a34a;
+}
+@media (max-width: 860px) {
+  .gis-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .gis-map {
+    height: 320px;
+  }
+  .gm-list {
+    max-height: none;
+  }
+}
+
+/* penanda titik pada peta */
+.gm-icon {
+  background: none;
+  border: 0;
+}
+.gm {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gm-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 6px rgba(15, 9, 69, 0.45);
+  color: #fff;
+  font: 700 11px/18px Arial, sans-serif;
+  text-align: center;
+}
+.gm-sel .gm-dot {
+  box-shadow: 0 0 0 3px var(--gold), 0 1px 6px rgba(15, 9, 69, 0.45);
+}
+.gm-cor::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  border: 3px solid #16a34a;
+  opacity: 0.7;
+  animation: gmPulse 1.6s ease-out infinite;
+}
+@keyframes gmPulse {
+  from {
+    transform: scale(0.7);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+.gm-corridor {
+  stroke-dasharray: 14 10;
+  animation: gmFlow 0.9s linear infinite;
+}
+@keyframes gmFlow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gm-cor::before,
+  .gm-corridor {
+    animation: none;
+  }
+}
+.gm-pop {
+  min-width: 190px;
+  font-size: 13px;
+}
+.gm-pop-st {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 6px;
+}
+.gm-pop-st i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.gm-pop-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+  border-top: 1px solid var(--line);
+}
+.gm-pop-cor {
+  margin-top: 6px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  background: #ecf8f0;
+  color: #0f5b2c;
+  font-weight: 600;
+}
+
+/* ---------- koridor hijau pada dashboard ---------- */
+.banner-corridor {
+  background: #16a34a;
+  color: #fff;
+  border-bottom: 1px solid #0f7a37;
+}
+.banner-corridor[hidden] {
+  display: none;
+}
+.diagram.corridor-on {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.35);
+}
+.corridor-badge {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #ecf8f0;
+  border-bottom: 1px solid #16a34a;
+  font-size: 13px;
+}
+.status-list .row.cor {
+  border-left: 3px solid #16a34a;
+}
+.cor-tag {
+  color: #0f7a37;
+  font-weight: 700;
+}
+td.mono {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

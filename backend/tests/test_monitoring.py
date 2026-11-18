@@ -8,7 +8,7 @@ def test_dashboard_after_refresh(client, petugas):
     assert r.status_code == 200
     d = r.json()
     assert d["pesan"] == "Data lalu lintas berhasil dimuat ulang."
-    assert len(d["simpang"]) == 4 and all(s["jumlah_kendaraan"] > 0 for s in d["simpang"])
+    assert len(d["simpang"]) == 5 and all(s["jumlah_kendaraan"] > 0 for s in d["simpang"])
 
 
 def test_congestion_alert_when_critical(client, admin):

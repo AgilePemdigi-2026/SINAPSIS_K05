@@ -79,7 +79,7 @@ def search_route(req: EmergencySearch, db: Session = Depends(get_db), user=Depen
     return res
 
 
-@router.post("/{id_rute}/activate")
+@router.post("/{id_rute:int}/activate")
 def activate(id_rute: int, db: Session = Depends(get_db), _=Depends(_petugas)):
     rute = db.get(RuteDarurat, id_rute)
     if rute is None:
@@ -97,7 +97,7 @@ def activate(id_rute: int, db: Session = Depends(get_db), _=Depends(_petugas)):
     return res
 
 
-@router.post("/{id_rute}/cancel")
+@router.post("/{id_rute:int}/cancel")
 def cancel(id_rute: int, db: Session = Depends(get_db), _=Depends(_petugas)):
     rute = db.get(RuteDarurat, id_rute)
     if rute is None:
@@ -111,7 +111,7 @@ def cancel(id_rute: int, db: Session = Depends(get_db), _=Depends(_petugas)):
     return res
 
 
-@router.post("/{id_rute}/complete")
+@router.post("/{id_rute:int}/complete")
 def complete(id_rute: int, db: Session = Depends(get_db), _=Depends(_petugas)):
     rute = db.get(RuteDarurat, id_rute)
     if rute is None or rute.status != "Aktif":

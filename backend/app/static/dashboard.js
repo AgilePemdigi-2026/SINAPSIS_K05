@@ -32,6 +32,8 @@
     ws: null,
     wsConnected: false,
     wsRetry: null,
+    loaded: false,
+    gis: null,
   };
 
   function $(id) {
@@ -56,6 +58,78 @@
 
   function clear(node) {
     while (node.firstChild) node.removeChild(node.firstChild);
+  }
+
+  /* ---------- indikator memuat (skeleton) ---------- */
+  function skel(cls) {
+    return el("div", "skel " + cls);
+  }
+
+  function showSkeleton() {
+    var main = $("traffic-density-map");
+    if (main) main.setAttribute("aria-busy", "true");
+    var kp = $("kpis");
+    clear(kp);
+    for (var i = 0; i < 5; i++) {
+      var c = el("div", "kpi kpi-skel");
+      c.appendChild(skel("skel-line w40"));
+      c.appendChild(skel("skel-line big w60"));
+      c.appendChild(skel("skel-line w80"));
+      kp.appendChild(c);
+    }
+    var dg = $("diagram");
+    clear(dg);
+    dg.appendChild(skel("skel-diagram"));
+    dg.appendChild(el("p", "skel-label", "Memuat data persimpangan…"));
+    var sl = $("statusList");
+    clear(sl);
+    for (var j = 0; j < 5; j++) sl.appendChild(skel("skel-row"));
+    var gl = $("gisList");
+    if (gl) {
+      clear(gl);
+      for (var g = 0; g < 5; g++) gl.appendChild(skel("skel-row"));
+    }
+    var gm = $("gisMap");
+    if (gm) gm.classList.add("loading");
+    var tb = $("telemetryBody");
+    clear(tb);
+    for (var r = 0; r < 4; r++) {
+      var tr = el("tr", "skel-tr");
+      for (var t = 0; t < 8; t++) {
+        var td = el("td");
+        td.appendChild(skel("skel-line"));
+        tr.appendChild(td);
+      }
+      tb.appendChild(tr);
+    }
+    var pp = $("predPanel");
+    clear(pp);
+    pp.appendChild(skel("skel-line w80"));
+    pp.appendChild(skel("skel-line w60"));
+    pp.appendChild(skel("skel-line w80"));
+  }
+
+  function endSkeleton(failed) {
+    var main = $("traffic-density-map");
+    if (main) main.removeAttribute("aria-busy");
+    var gm = $("gisMap");
+    if (gm) gm.classList.remove("loading");
+    if (!failed) return;
+    ["kpis", "statusList", "gisList", "telemetryBody", "predPanel"].forEach(
+      function (id) {
+        var n = $(id);
+        if (n) clear(n);
+      },
+    );
+    var dg = $("diagram");
+    clear(dg);
+    dg.appendChild(
+      el(
+        "div",
+        "empty",
+        "Data persimpangan belum dapat dimuat. Periksa koneksi, lalu tekan “Refresh Data”.",
+      ),
+    );
   }
 
   /* ---------- format ---------- */
@@ -161,6 +235,7 @@
   }
 
   function showError(msg) {
+    if (msg && !state.loaded) endSkeleton(true);
     var b = $("bannerError");
     b.hidden = !msg;
     b.textContent = msg || "";
@@ -179,6 +254,10 @@
   /* ---------- render ---------- */
   function render(data) {
     state.data = data;
+    if (!state.loaded) {
+      state.loaded = true;
+      endSkeleton(false);
+    }
     renderStatusbar(data);
     renderBanners(data);
     pickSelected(data);
@@ -190,6 +269,52 @@
     renderPrediction(data);
     renderTelemetry(data);
     renderCctv();
+    renderGis(data);
+  }
+
+  /* ---------- peta GIS dan koridor hijau (Fitur 9) ---------- */
+  function coord(s) {
+    return window.SinapsisMap
+      ? window.SinapsisMap.fmtCoord(s.latitude, s.longitude)
+      : "—";
+  }
+
+  function renderGis(d) {
+    var count = $("gisCount");
+    if (count) count.textContent = d.simpang.length + " titik";
+    if (!state.gis && window.SinapsisMap && $("gisMap")) {
+      state.gis = window.SinapsisMap.create({
+        el: $("gisMap"),
+        noteEl: $("gisNote"),
+        chipEl: $("gisChip"),
+        listEl: $("gisList"),
+        onSelect: function (id) {
+          if (id !== state.selected) selectSimpang(id);
+        },
+      });
+    }
+    if (state.gis) state.gis.update(d, state.selected);
+  }
+
+  function corridorBadge(item) {
+    var b = el("div", "corridor-badge");
+    b.appendChild(el("strong", null, "KORIDOR HIJAU AKTIF"));
+    var c = item.koridor;
+    b.appendChild(
+      el(
+        "span",
+        null,
+        c
+          ? c.emergency_id +
+              (c.jenis_kendaraan ? " · " + c.jenis_kendaraan : "") +
+              " · titik ke-" +
+              c.urutan +
+              " dari " +
+              c.total
+          : "Jalur darurat aktif pada persimpangan ini",
+      ),
+    );
+    return b;
   }
 
   function renderStatusbar(d) {
@@ -207,6 +332,19 @@
     var s = $("bannerSensor");
     s.hidden = !d.pesan_sensor;
     s.textContent = d.pesan_sensor || "";
+    var cb = $("bannerCorridor"),
+      cor = d.koridor_hijau || [];
+    cb.hidden = !cor.length;
+    cb.textContent = cor.length
+      ? "Mode darurat: " +
+        cor
+          .map(function (c) {
+            return window.SinapsisMap
+              ? window.SinapsisMap.corridorText(c, d.simpang)
+              : c.emergency_id;
+          })
+          .join(" | ")
+      : "";
   }
 
   function pickSelected(d) {
@@ -332,6 +470,10 @@
       var name = el("span", "name", s.nama_lokasi);
       if (s.jumlah_lengan && s.jumlah_lengan < 4)
         name.appendChild(el("small", null, s.jumlah_lengan + " lengan"));
+      if (s.koridor_hijau) {
+        row.classList.add("cor");
+        name.appendChild(el("small", "cor-tag", "Koridor hijau"));
+      }
       var mini = el("span", "mini");
       var fill = el(
         "i",
@@ -766,6 +908,8 @@
     var box = $("diagram");
     clear(box);
     var item = currentItem();
+    box.classList.toggle("corridor-on", !!(item && item.koridor_hijau));
+    if (item && item.koridor_hijau) box.appendChild(corridorBadge(item));
     if (!item || !item.jalur.length) {
       box.appendChild(
         el(
@@ -1153,6 +1297,7 @@
       var has = s.jalur.length > 0;
       var cells = [
         [s.nama_lokasi, ""],
+        [coord(s), "mono"],
         [has ? String(s.jumlah_kendaraan) : "—", "num"],
         [
           has
@@ -1319,6 +1464,7 @@
 
   function init() {
     startClock();
+    showSkeleton();
     paintAnimToggle();
     $("animToggle").addEventListener("click", function () {
       var next = animEnabled() ? "off" : "on";

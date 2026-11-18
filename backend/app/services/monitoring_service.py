@@ -16,6 +16,7 @@ from app.models import (
 )
 from app.ml.dataset import WINDOW
 from app.ml.predictor import get_predictor
+from app.services import corridor_view, green_corridor_service
 from app.services.arms import arm_type
 from app.services.neuromorphic import IntersectionEngine, Params
 from app.services.sensor_source import CsvSensorSource, SensorOffline, SensorSource, SyntheticSensorSource
@@ -288,6 +289,7 @@ def dashboard(db: Session) -> dict:
             } for arah in settings.LANE_NAMES],
             "snapshots": {arah: next((lane.vision_preview for lane in p.jalur if lane.arah == arah), None)
                           for arah in settings.LANE_NAMES},
+            "latitude": p.latitude, "longitude": p.longitude,
             "terakhir_diperbarui": latest.isoformat() if latest else None,
             "waktu_data": ts.isoformat() if ts else None,
         }
@@ -296,12 +298,15 @@ def dashboard(db: Session) -> dict:
         if label == "Kritis":
             alerts.append(p.nama_lokasi)
     any_offline = any(i["sensor_offline"] for i in items)
+    corridors = corridor_view.build(green_corridor_service.ACTIVE_CORRIDORS, items)
+    corridor_view.annotate(items, corridors)
     pred = get_predictor()
     pilot = next((i for i in items if i["id_persimpangan"] == settings.PILOT_INTERSECTION_ID), None)
     return {
         "diperbarui": utcnow().isoformat(),
         "waktu_data": pilot["waktu_data"] if pilot else None,
         "simpang": items,
+        "koridor_hijau": corridors,
         "congestion_alert": bool(alerts),
         "pesan_alert": f"Peringatan: Kemacetan Terdeteksi di Persimpangan {', '.join(alerts)}" if alerts else None,
         "pesan_sensor": "Data pemantauan tidak tersedia untuk beberapa simpang." if any_offline else None,
