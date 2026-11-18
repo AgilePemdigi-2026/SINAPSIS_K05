@@ -4,221 +4,293 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - SINAPSIS DISHUB</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-white: #f8fafc;
+            --dishub-navy: #0b1947;
+            --dishub-blue: #0047ab;
+            --dishub-sky: #38bdf8;
+            --dishub-yellow: #facc15;
+            --dishub-amber: #f59e0b;
+            --ink: #0f172a;
+            --muted: #475569;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
 
         body {
-            background-color: #f8fafc;
+            background-color: var(--bg-white);
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+            color: var(--ink);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            overflow: hidden;
+            overflow-x: hidden;
             position: relative;
+            padding: 24px;
         }
 
-        /* LOGO KEMENHUB DISHUB POJOK KANAN ATAS */
+        h1, h2, h3, .brand-title {
+            font-family: 'Bricolage Grotesque', sans-serif;
+            letter-spacing: -0.025em;
+        }
+
+        /* LOGO KEMENHUB DISHUB POJOK KANAN ATAS (Floating Pill) */
         .page-top-right-logos {
             position: fixed;
-            top: 24px;
-            right: 32px;
+            top: 22px;
+            right: 28px;
             z-index: 100;
             display: flex;
             align-items: center;
             gap: 14px;
-            background: rgba(255, 255, 255, 0.85);
-            padding: 8px 18px;
-            border-radius: 40px;
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.95);
-            box-shadow: 0 8px 24px rgba(11, 9, 59, 0.08);
+            background: rgba(255, 255, 255, 0.82);
+            padding: 9px 20px;
+            border-radius: 999px;
+            backdrop-filter: blur(20px) saturate(150%);
+            -webkit-backdrop-filter: blur(20px) saturate(150%);
+            border: 1.5px solid rgba(255, 255, 255, 0.95);
+            box-shadow: 0 12px 28px -6px rgba(0, 71, 171, 0.14);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .page-top-right-logos:hover {
+            transform: translateY(-2px) scale(1.02);
         }
 
         .page-top-right-logos img {
-            height: 38px;
+            height: 36px;
             width: auto;
             object-fit: contain;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
         }
 
         .page-top-right-logos .divider {
             width: 1.5px;
-            height: 26px;
-            background-color: #cbd5e1;
+            height: 24px;
+            background: linear-gradient(to bottom, transparent, #cbd5e1, transparent);
         }
 
-        /* BACKGROUND BLOBS */
+        /* ORGANIC MORPHING BLOBS (Putih + Biru Dishub + Kuning Emas) */
         .bg-blobs {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
+            position: fixed;
+            inset: 0;
             z-index: 1;
             overflow: hidden;
+            pointer-events: none;
+            background: radial-gradient(circle at 50% 10%, #ffffff 0%, #f1f5f9 100%);
         }
 
         .blob {
             position: absolute;
-            border-radius: 50%;
-            filter: blur(100px);
-            opacity: 0.45;
-            animation: moveBlob 16s infinite alternate ease-in-out;
+            filter: blur(80px);
+            will-change: transform, border-radius;
+            animation: morphBlob 16s infinite alternate ease-in-out;
         }
 
         .blob-1 {
-            width: 480px;
-            height: 480px;
-            background: #152c70;
-            top: -120px;
-            left: -120px;
-            animation-duration: 18s;
+            width: 520px;
+            height: 520px;
+            background: linear-gradient(135deg, #0047ab 0%, #38bdf8 100%);
+            opacity: 0.45;
+            top: -140px;
+            left: -110px;
+            animation-duration: 17s;
         }
 
         .blob-2 {
-            width: 420px;
-            height: 420px;
-            background: #4672a8;
-            bottom: -120px;
-            right: -60px;
-            animation-duration: 22s;
+            width: 460px;
+            height: 460px;
+            background: linear-gradient(135deg, #facc15 0%, #fde047 100%);
+            opacity: 0.5;
+            bottom: -130px;
+            right: -70px;
+            animation-duration: 21s;
+            animation-delay: -4s;
         }
 
         .blob-3 {
-            width: 320px;
-            height: 320px;
-            background: #e8c559;
-            top: 35%;
-            left: 50%;
-            opacity: 0.3;
+            width: 360px;
+            height: 360px;
+            background: linear-gradient(135deg, #60a5fa 0%, #fef08a 100%);
+            top: 32%;
+            left: 44%;
+            opacity: 0.4;
             animation-duration: 14s;
+            animation-delay: -8s;
         }
 
-        @keyframes moveBlob {
-            0% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(70px, -40px) scale(1.1); }
-            100% { transform: translate(-50px, 50px) scale(0.95); }
+        @keyframes morphBlob {
+            0% {
+                border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%;
+                transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+            }
+            50% {
+                border-radius: 68% 32% 42% 58% / 30% 66% 34% 70%;
+                transform: translate3d(55px, -35px, 0) rotate(14deg) scale(1.08);
+            }
+            100% {
+                border-radius: 35% 65% 54% 46% / 60% 36% 64% 40%;
+                transform: translate3d(-40px, 45px, 0) rotate(-12deg) scale(0.95);
+            }
         }
 
-        /* MAIN GLASS CARD */
+        /* MAIN GLASS CARD (Bento Split Container) */
         .glass-card {
             position: relative;
             z-index: 2;
-            width: 90%;
-            max-width: 940px;
-            min-height: 540px;
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.85);
-            border-radius: 24px;
-            box-shadow: 0 20px 50px rgba(11, 9, 59, 0.1), 0 1px 3px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 980px;
+            min-height: 560px;
+            background: rgba(255, 255, 255, 0.74);
+            backdrop-filter: blur(26px) saturate(160%);
+            -webkit-backdrop-filter: blur(26px) saturate(160%);
+            border: 1.5px solid rgba(255, 255, 255, 0.92);
+            border-radius: 32px;
+            box-shadow: 0 24px 60px -15px rgba(0, 71, 171, 0.16), 0 4px 16px rgba(15, 23, 42, 0.04);
             display: flex;
+            padding: 14px;
+            gap: 14px;
             overflow: hidden;
         }
 
         /* FORM SECTION (LEFT) */
         .form-section {
             flex: 1;
-            padding: 44px 44px;
+            padding: 36px 36px;
             display: flex;
             flex-direction: column;
             justify-content: center;
         }
 
         .brand-logo {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 22px;
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(0, 71, 171, 0.12);
+            padding: 6px 14px 6px 8px;
+            border-radius: 999px;
+            width: fit-content;
+            box-shadow: 0 4px 12px rgba(0, 71, 171, 0.06);
         }
 
         .logo-icon {
-            width: 14px;
-            height: 14px;
-            background-color: #e8c559;
-            border-radius: 3px;
-            transform: rotate(45deg);
-            box-shadow: 0 0 10px rgba(232, 197, 89, 0.6);
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, var(--dishub-blue) 0%, #1d4ed8 100%);
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            position: relative;
+        }
+
+        .logo-icon::after {
+            content: '';
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--dishub-yellow);
+            box-shadow: 0 0 8px var(--dishub-yellow);
         }
 
         .brand-logo span {
-            font-size: 14px;
+            font-family: 'Bricolage Grotesque', sans-serif;
+            font-size: 13px;
             font-weight: 800;
-            color: #0b093b;
-            letter-spacing: 1.5px;
+            color: var(--dishub-navy);
+            letter-spacing: 0.8px;
         }
 
         .form-section h2 {
-            font-size: 26px;
+            font-size: 30px;
             font-weight: 800;
-            color: #0b093b;
-            margin-bottom: 4px;
+            color: var(--dishub-navy);
+            margin-bottom: 6px;
         }
 
         .form-section p.subtitle {
-            font-size: 13px;
-            color: #4672a8;
-            margin-bottom: 22px;
+            font-size: 13.5px;
+            color: var(--muted);
+            margin-bottom: 24px;
+            line-height: 1.5;
         }
 
         .form-group {
-            margin-bottom: 14px;
+            margin-bottom: 16px;
         }
 
         .form-group label {
             display: block;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 700;
-            color: #0b093b;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            color: var(--dishub-navy);
+            margin-bottom: 6px;
         }
 
         .form-group input {
             width: 100%;
-            padding: 11px 14px;
-            background: rgba(255, 255, 255, 0.85);
+            padding: 13px 16px;
+            background: rgba(255, 255, 255, 0.9);
             border: 1.5px solid #cbd5e1;
-            border-radius: 10px;
-            font-size: 13px;
-            color: #0b093b;
+            border-radius: 16px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 13.5px;
+            color: var(--dishub-navy);
             outline: none;
-            transition: all 0.2s ease;
+            transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
         .form-group input:focus {
             background: #ffffff;
-            border-color: #152c70;
-            box-shadow: 0 0 0 3px rgba(21, 44, 112, 0.15);
+            border-color: var(--dishub-blue);
+            box-shadow: 0 0 0 4px rgba(0, 71, 171, 0.12), 0 0 0 1px var(--dishub-yellow);
+            transform: translateY(-1px);
         }
 
         .btn-submit {
             width: 100%;
-            padding: 12px;
-            background-color: #0b093b;
+            padding: 14px 20px;
+            background: linear-gradient(135deg, var(--dishub-blue) 0%, var(--dishub-navy) 100%);
             color: #ffffff;
             border: none;
-            border-radius: 10px;
+            border-radius: 999px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
             font-size: 14px;
             font-weight: 700;
             cursor: pointer;
-            transition: all 0.25s ease;
-            margin-top: 6px;
-            box-shadow: 0 4px 15px rgba(11, 9, 59, 0.25);
+            transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.28s ease;
+            margin-top: 8px;
+            box-shadow: 0 12px 24px -6px rgba(0, 71, 171, 0.42);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         .btn-submit:hover {
-            background-color: #152c70;
-            transform: translateY(-1px);
-            box-shadow: 0 6px 18px rgba(21, 44, 112, 0.35);
+            transform: translateY(-2px) scale(1.015);
+            box-shadow: 0 16px 30px -6px rgba(0, 71, 171, 0.52);
+        }
+
+        .btn-submit:active {
+            transform: scale(0.98);
+        }
+
+        .btn-submit .pill-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--dishub-yellow);
         }
 
         /* BOTTOM LINKS & CENTER NOTICE */
@@ -226,41 +298,42 @@
             display: flex;
             justify-content: flex-end;
             margin-top: 14px;
-            font-size: 12px;
+            font-size: 12.5px;
         }
 
         .auth-links-row a {
-            color: #152c70;
+            color: var(--dishub-blue);
             text-decoration: none;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             transition: color 0.2s;
         }
 
         .auth-links-row a:hover {
-            color: #4672a8;
+            color: var(--dishub-navy);
             text-decoration: underline;
         }
 
         .admin-notice {
             margin-top: 20px;
-            padding: 10px 14px;
-            background: rgba(21, 44, 112, 0.06);
-            border: 1px solid rgba(21, 44, 112, 0.14);
-            border-radius: 10px;
-            font-size: 11.5px;
-            color: #334155;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, rgba(219, 234, 254, 0.65) 0%, rgba(254, 249, 195, 0.65) 100%);
+            border: 1px solid rgba(250, 204, 21, 0.55);
+            border-radius: 16px;
+            font-size: 12px;
+            color: #1e293b;
             text-align: center;
-            line-height: 1.45;
+            line-height: 1.5;
         }
 
         .alert-box {
             background-color: #fef2f2;
+            border: 1px solid #fecaca;
             border-left: 4px solid #ef4444;
             color: #991b1b;
-            padding: 10px 12px;
-            border-radius: 6px;
-            font-size: 12px;
+            padding: 11px 14px;
+            border-radius: 14px;
+            font-size: 12.5px;
             margin-top: 14px;
             display: none;
             text-align: center;
@@ -269,25 +342,41 @@
 
         .alert-box.success {
             background-color: #f0fdf4;
+            border-color: #bbf7d0;
             border-left-color: #22c55e;
             color: #15803d;
         }
 
-        /* ART SECTION (RIGHT) */
+        /* ART SECTION (RIGHT - Rounded Bento Card) */
         .art-section {
-            flex: 1.15;
+            flex: 1.1;
             position: relative;
-            background: radial-gradient(circle at center, #152c70 0%, #0b093b 100%);
+            border-radius: 24px;
+            background: linear-gradient(155deg, #0047ab 0%, #0b1947 72%, #172554 100%);
             overflow: hidden;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
+            padding: 28px;
+        }
+
+        /* Morphing yellow glow inside art card */
+        .art-section::after {
+            content: '';
+            position: absolute;
+            width: 240px;
+            height: 240px;
+            bottom: -70px;
+            right: -50px;
+            background: radial-gradient(circle, rgba(250, 204, 21, 0.65) 0%, rgba(250, 204, 21, 0) 70%);
+            animation: morphBlob 12s infinite alternate ease-in-out;
+            pointer-events: none;
         }
 
         #neuralCanvas {
             position: absolute;
-            top: 0;
-            left: 0;
+            inset: 0;
             width: 100%;
             height: 100%;
             z-index: 1;
@@ -295,24 +384,24 @@
 
         .ai-ring {
             position: absolute;
-            border-radius: 50%;
-            border: 1px dashed rgba(232, 197, 89, 0.35);
+            border-radius: 44% 56% 52% 48% / 48% 42% 58% 52%;
+            border: 1.5px dashed rgba(250, 204, 21, 0.45);
             z-index: 2;
             pointer-events: none;
-            animation: spinRing 25s linear infinite;
+            animation: spinRing 22s linear infinite;
         }
 
         .ai-ring-1 {
-            width: 280px;
-            height: 280px;
-            border-top: 2px solid #e8c559;
+            width: 290px;
+            height: 290px;
+            border-top: 2.5px solid var(--dishub-yellow);
         }
 
         .ai-ring-2 {
-            width: 220px;
-            height: 220px;
-            border-right: 2px solid #4672a8;
-            animation-duration: 18s;
+            width: 225px;
+            height: 225px;
+            border-right: 2.5px solid #38bdf8;
+            animation-duration: 16s;
             animation-direction: reverse;
         }
 
@@ -326,43 +415,70 @@
             z-index: 3;
             color: #ffffff;
             text-align: center;
-            padding: 32px 28px;
-            background: rgba(11, 9, 59, 0.45);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            width: 78%;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            padding: 32px 26px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            width: 84%;
+            border-radius: 26px;
+            border: 1.5px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
         }
 
         .art-overlay .badge {
-            display: inline-block;
-            background: rgba(232, 197, 89, 0.2);
-            color: #e8c559;
-            border: 1px solid #e8c559;
-            padding: 4px 12px;
-            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(250, 204, 21, 0.22);
+            color: #fef08a;
+            border: 1px solid rgba(250, 204, 21, 0.65);
+            padding: 5px 14px;
+            border-radius: 999px;
             font-size: 11px;
             font-weight: 700;
-            letter-spacing: 1px;
-            margin-bottom: 12px;
+            letter-spacing: 0.8px;
+            margin-bottom: 14px;
             text-transform: uppercase;
         }
 
         .art-overlay h3 {
-            font-size: 22px;
+            font-size: 28px;
             font-weight: 800;
             color: #ffffff;
             margin-bottom: 8px;
-            letter-spacing: 1.5px;
+            letter-spacing: 0.5px;
         }
 
         .art-overlay p {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.8);
+            font-size: 13px;
+            color: #dbeafe;
             font-weight: 400;
-            line-height: 1.5;
+            line-height: 1.6;
+        }
+
+        .feature-pills {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 18px;
+        }
+
+        .feature-pill {
+            font-size: 11px;
+            font-weight: 600;
+            color: #ffffff;
+            background: rgba(11, 25, 71, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            padding: 5px 12px;
+            border-radius: 999px;
+        }
+
+        @media (max-width: 840px) {
+            .glass-card { flex-direction: column; }
+            .art-section { min-height: 260px; }
+            .page-top-right-logos { top: 12px; right: 14px; padding: 6px 14px; }
+            .page-top-right-logos img { height: 28px; }
         }
     </style>
 </head>
@@ -381,7 +497,6 @@
     </div>
 
     <div class="glass-card">
-        
         <div class="form-section">
             <div class="brand-logo">
                 <div class="logo-icon"></div>
@@ -390,12 +505,12 @@
 
             <!-- VIEW 1: LOGIN -->
             <div id="viewLogin">
-                <h2>Sign In</h2>
-                <p class="subtitle">Masuk ke sistem pemantauan lalu lintas</p>
+                <h2>Selamat Datang! 👋</h2>
+                <p class="subtitle">Masuk ke pusat kendali &amp; pemantauan lalu lintas adaptif</p>
 
                 <div class="form-group">
                     <label for="username">Username</label>
-                    <input type="text" id="username" placeholder="Masukkan username" autocomplete="off">
+                    <input type="text" id="username" placeholder="Masukkan username petugas / admin" autocomplete="off">
                 </div>
 
                 <div class="form-group">
@@ -403,7 +518,10 @@
                     <input type="password" id="password" placeholder="Masukkan password">
                 </div>
 
-                <button class="btn-submit" onclick="executeLogin()">Masuk Ke Sistem</button>
+                <button class="btn-submit" onclick="executeLogin()">
+                    <span class="pill-dot"></span>
+                    <span>Masuk Ke Sistem</span>
+                </button>
 
                 <div class="auth-links-row">
                     <a onclick="switchView('viewForgot')">Lupa Password?</a>
@@ -416,8 +534,8 @@
 
             <!-- VIEW 2: LUPA PASSWORD -->
             <div id="viewForgot" style="display: none;">
-                <h2>Lupa Password</h2>
-                <p class="subtitle">Reset password akun Anda</p>
+                <h2>Reset Password</h2>
+                <p class="subtitle">Pulihkan akses akun SINAPSIS Anda</p>
 
                 <!-- Step A: Request Token -->
                 <div id="stepReqToken">
@@ -431,12 +549,12 @@
                 <!-- Step B: Reset Password -->
                 <div id="stepSetNewPassword" style="display: none;">
                     <div class="form-group">
-                        <label for="resetToken">Token Reset (15 Menit Expiry)</label>
+                        <label for="resetToken">Token Reset (Berlaku 15 Menit)</label>
                         <input type="text" id="resetToken" placeholder="Token terisi otomatis">
                     </div>
                     <div class="form-group">
                         <label for="newPassword">Password Baru</label>
-                        <input type="password" id="newPassword" placeholder="Password baru">
+                        <input type="password" id="newPassword" placeholder="Masukkan password baru">
                     </div>
                     <button class="btn-submit" onclick="executeResetPassword()">Simpan Password Baru</button>
                 </div>
@@ -454,12 +572,15 @@
             <div class="ai-ring ai-ring-1"></div>
             <div class="ai-ring ai-ring-2"></div>
             <div class="art-overlay">
-                <span class="badge">AI NEUROMORPHIC</span>
+                <span class="badge">● AI NEUROMORPHIC</span>
                 <h3>SINAPSIS</h3>
-                <p>Traffic Control & Real-Time Intelligent Monitoring System</p>
+                <p>Traffic Control &amp; Real-Time Intelligent Monitoring System</p>
+                <div class="feature-pills">
+                    <span class="feature-pill">🚑 Green Corridor</span>
+                    <span class="feature-pill">⚡ SNN Spike Control</span>
+                </div>
             </div>
         </div>
-
     </div>
 
     <script>
@@ -483,8 +604,8 @@
                 this.y = Math.random() * canvas.height;
                 this.vx = (Math.random() - 0.5) * 0.8;
                 this.vy = (Math.random() - 0.5) * 0.8;
-                this.radius = Math.random() * 2 + 1;
-                this.color = Math.random() > 0.3 ? '#4672a8' : '#e8c559';
+                this.radius = Math.random() * 2.2 + 1;
+                this.color = Math.random() > 0.35 ? '#38bdf8' : '#facc15';
             }
             update() {
                 this.x += this.vx;
@@ -496,7 +617,7 @@
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
-                ctx.shadowBlur = 8;
+                ctx.shadowBlur = 10;
                 ctx.shadowColor = this.color;
                 ctx.fill();
                 ctx.shadowBlur = 0;
@@ -514,10 +635,10 @@
                     const dy = particles[a].y - particles[b].y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
 
-                    if (dist < 100) {
+                    if (dist < 105) {
                         ctx.beginPath();
-                        ctx.strokeStyle = `rgba(70, 114, 168, ${1 - dist / 100})`;
-                        ctx.lineWidth = 0.6;
+                        ctx.strokeStyle = `rgba(147, 197, 253, ${1 - dist / 105})`;
+                        ctx.lineWidth = 0.7;
                         ctx.moveTo(particles[a].x, particles[a].y);
                         ctx.lineTo(particles[b].x, particles[b].y);
                         ctx.stroke();
@@ -538,10 +659,7 @@
         function switchView(viewId) {
             document.getElementById('viewLogin').style.display = 'none';
             document.getElementById('viewForgot').style.display = 'none';
-            
-            const notif = document.getElementById('globalNotification');
-            notif.style.display = 'none';
-
+            document.getElementById('globalNotification').style.display = 'none';
             document.getElementById(viewId).style.display = 'block';
         }
 
