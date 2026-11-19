@@ -74,7 +74,10 @@ def test_koridor_hijau_aktif_muncul_di_dashboard(client, admin):
 
 def test_dashboard_memuat_peta_leaflet_dan_skeleton(client):
     html = client.get("/dashboard").text
-    assert 'id="gisMap"' in html and 'id="gisList"' in html and 'id="bannerCorridor"' in html
+    assert 'id="gisMap"' in html and 'id="statusList"' in html and 'id="bannerCorridor"' in html
+    # peta digabung ke panel "Peta & status persimpangan" (tidak ada lagi panel peta terpisah yang redundan)
+    assert 'class="panel gis"' not in html and 'id="gisList"' not in html
+    assert html.index('id="gisMap"') < html.index('id="statusList"')
     assert html.index("/static/vendor/leaflet/leaflet.js") < html.index("/static/dashboard_map.js") \
         < html.index("/static/dashboard.js")
     for path in ("/static/dashboard_map.js", "/static/vendor/leaflet/leaflet.js", "/static/vendor/leaflet/leaflet.css"):

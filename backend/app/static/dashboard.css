@@ -1177,3 +1177,150 @@ td.mono {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* ---------- peta ringkas di panel status persimpangan ---------- */
+.gis-map.compact {
+  height: 220px;
+  margin: 8px 0 6px;
+  border-radius: 10px;
+}
+.gm-legend.tight {
+  gap: 4px 12px;
+  margin: 0 0 8px;
+  font-size: 11px;
+}
+.gm-legend.tight i {
+  width: 9px;
+  height: 9px;
+}
+.gm-legend.tight .gm-legend-line {
+  width: 16px;
+  height: 4px;
+}
+.panel .status-list {
+  max-height: 232px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.panel .gm-chip {
+  margin: 8px 0 0;
+}
+.status-list .row.selected {
+  box-shadow: inset 3px 0 0 var(--blue);
+}
+
+/* ---------- poles diagram persimpangan ---------- */
+.asphalt-tex {
+  fill: url(#asphaltTex);
+  pointer-events: none;
+}
+.grain {
+  fill: #646973;
+  opacity: 0.55;
+}
+.lane-arrow {
+  fill: #ffffff;
+  opacity: 0.3;
+  pointer-events: none;
+}
+.stop {
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.35));
+}
+
+/* kendaraan */
+.veh-shadow {
+  fill: rgba(8, 12, 32, 0.26);
+}
+.veh .car {
+  stroke: rgba(10, 14, 36, 0.38);
+  stroke-width: 0.8;
+}
+.veh .glass {
+  fill: rgba(14, 22, 54, 0.62);
+}
+.veh .glass.rear {
+  fill: rgba(14, 22, 54, 0.5);
+}
+.veh-roof {
+  fill: rgba(255, 255, 255, 0.34);
+}
+.veh-head {
+  fill: #fff6bf;
+}
+.veh-tail {
+  fill: #8f1d24;
+  opacity: 0.75;
+}
+.veh.braking .veh-tail {
+  fill: #ff3b30;
+  opacity: 1;
+}
+.veh-bar {
+  fill: #20263b;
+}
+.veh-motor .rider {
+  fill: #101733;
+  opacity: 0.9;
+}
+.veh-blink {
+  fill: #ffb000;
+  opacity: 0;
+}
+.veh[data-turn="-1"] .bl-l,
+.veh[data-turn="1"] .bl-r {
+  animation: vehBlink 0.7s steps(1, end) infinite;
+}
+@keyframes vehBlink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* lampu lalu lintas berdenyut halus */
+.lamp-glow-green,
+.lamp-glow-red {
+  animation: lampGlow 2.4s ease-in-out infinite;
+}
+@keyframes lampGlow {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .veh[data-turn] .veh-blink {
+    animation: none;
+    opacity: 1;
+  }
+  .lamp-glow-green,
+  .lamp-glow-red {
+    animation: none;
+  }
+}
+
+.side .list-head > :nth-child(2),
+.side .row > :nth-child(2) {
+  flex-basis: 70px;
+}
+.side .list-head > :nth-child(3),
+.side .row > :nth-child(3) {
+  flex-basis: 52px;
+  text-align: right;
+}
+.side .status-list .row {
+  padding: 6px 8px;
+}
+.side .status-list .row .name small {
+  display: block;
+  margin-left: 0;
+}
+.gm-tip {
+  font-size: 12px;
+}

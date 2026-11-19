@@ -471,9 +471,25 @@
         <aside class="side">
           <section class="panel" aria-labelledby="listTitle">
             <div class="panel-head">
-              <h2 id="listTitle">Status persimpangan</h2>
+              <h2 id="listTitle">Peta &amp; status persimpangan</h2>
               <span id="listCount" class="muted"></span>
             </div>
+            <div id="gisChip" class="gm-chip" hidden aria-live="polite"></div>
+            <div
+              id="gisMap"
+              class="gis-map compact"
+              role="application"
+              aria-label="Peta lokasi persimpangan dan koridor hijau"
+            ></div>
+            <p id="gisNote" class="note" hidden></p>
+            <ul class="gm-legend tight" aria-label="Keterangan peta">
+              <li><i style="background: #2f7d4a"></i>Lancar</li>
+              <li><i style="background: #114eab"></i>Padat</li>
+              <li><i style="background: #b3112b"></i>Kritis</li>
+              <li><i style="background: #6b7280"></i>Offline</li>
+              <li><i style="background: #94a3b8"></i>Belum ada data</li>
+              <li><i class="gm-legend-line"></i>Koridor hijau</li>
+            </ul>
             <div class="list-head">
               <span>Persimpangan</span><span>Status</span
               ><span class="num">Kendaraan</span>
@@ -483,6 +499,7 @@
               class="status-list intersection-status-list"
             ></div>
             <p class="note">
+              Klik titik di peta atau baris daftar untuk memilih persimpangan.
               Kendaraan = jumlah pada siklus terakhir (semua lengan). Bilah =
               kepadatan jalur terpadat.
             </p>
@@ -502,32 +519,6 @@
           </section>
         </aside>
       </div>
-
-      <section class="panel gis" aria-labelledby="gisTitle">
-        <div class="panel-head">
-          <h2 id="gisTitle">Peta persimpangan (GIS)</h2>
-          <span id="gisCount" class="muted"></span>
-        </div>
-        <div id="gisChip" class="gm-chip" hidden aria-live="polite"></div>
-        <div class="gis-body">
-          <div
-            id="gisMap"
-            class="gis-map"
-            role="application"
-            aria-label="Peta lokasi persimpangan dan koridor hijau"
-          ></div>
-          <div id="gisList" class="gm-list" aria-label="Daftar titik persimpangan"></div>
-        </div>
-        <p id="gisNote" class="note" hidden></p>
-        <ul class="gm-legend" aria-label="Keterangan peta">
-          <li><i style="background: #2f7d4a"></i>Lancar</li>
-          <li><i style="background: #114eab"></i>Padat</li>
-          <li><i style="background: #b3112b"></i>Kritis</li>
-          <li><i style="background: #6b7280"></i>Sensor offline</li>
-          <li><i style="background: #94a3b8"></i>Belum ada data</li>
-          <li><i class="gm-legend-line"></i>Koridor hijau (mode darurat)</li>
-        </ul>
-      </section>
 
       <section class="panel telemetry" aria-labelledby="telTitle">
         <div class="panel-head">

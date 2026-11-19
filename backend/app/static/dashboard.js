@@ -287,13 +287,21 @@
         el: $("gisMap"),
         noteEl: $("gisNote"),
         chipEl: $("gisChip"),
-        listEl: $("gisList"),
+        padding: [38, 38],
+        popup: false,
         onSelect: function (id) {
           if (id !== state.selected) selectSimpang(id);
         },
       });
     }
-    if (state.gis) state.gis.update(d, state.selected);
+    if (state.gis) {
+      state.gis.update(d, state.selected);
+      if (state.gisSel !== state.selected) {
+        // pilihan berganti (dari peta, daftar, atau menu): peta ikut bergeser ke titik itu
+        if (state.gisSel !== undefined) state.gis.focus(state.selected);
+        state.gisSel = state.selected;
+      }
+    }
   }
 
   function corridorBadge(item) {
@@ -711,7 +719,48 @@
     s.appendChild(g);
   }
 
+  /* tekstur aspal halus (pola titik) yang dilapiskan di atas warna dasar jalan */
+  function drawDefs(s) {
+    var defs = svg("defs", {});
+    var pat = svg("pattern", {
+      id: "asphaltTex",
+      width: 18,
+      height: 18,
+      patternUnits: "userSpaceOnUse",
+    });
+    [
+      [3, 4, 0.7],
+      [11, 2, 0.5],
+      [8, 9, 0.8],
+      [15, 12, 0.6],
+      [2, 14, 0.5],
+    ].forEach(function (d) {
+      pat.appendChild(svg("circle", { class: "grain", cx: d[0], cy: d[1], r: d[2] }));
+    });
+    defs.appendChild(pat);
+    s.appendChild(defs);
+  }
+  function drawLaneArrows(s, arms) {
+    var T = window.SinapsisTraffic;
+    if (!T) return;
+    arms.forEach(function (name) {
+      var g = T.GEO[name];
+      if (!g) return;
+      var x = g.stop[0] - g.heading[0] * 58,
+        y = g.stop[1] - g.heading[1] * 58,
+        ang = (Math.atan2(g.heading[0], -g.heading[1]) * 180) / Math.PI;
+      s.appendChild(
+        svg("path", {
+          class: "lane-arrow",
+          d: "M0,-9 L6,0 L2.2,0 L2.2,9 L-2.2,9 L-2.2,0 L-6,0 Z",
+          transform: "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ") rotate(" + ang.toFixed(0) + ")",
+        }),
+      );
+    });
+  }
+
   function drawRoads(s, arms) {
+    drawDefs(s);
     s.appendChild(
       svg("rect", { class: "ground", x: 0, y: 0, width: 760, height: 560 }),
     );
@@ -722,6 +771,15 @@
       s.appendChild(
         svg("rect", {
           class: "asphalt",
+          x: r[0],
+          y: r[1],
+          width: r[2],
+          height: r[3],
+        }),
+      );
+      s.appendChild(
+        svg("rect", {
+          class: "asphalt-tex",
           x: r[0],
           y: r[1],
           width: r[2],
@@ -947,6 +1005,10 @@
     s.appendChild(
       svg("rect", { x: 332, y: 232, width: 96, height: 96, fill: "#4d5158" }),
     );
+    s.appendChild(
+      svg("rect", { class: "asphalt-tex", x: 332, y: 232, width: 96, height: 96 }),
+    );
+    drawLaneArrows(s, arms);
     drawCompass(s);
     s.appendChild(
       svg(
@@ -1040,35 +1102,69 @@
     b.textContent = on ? "Animasi: hidup" : "Animasi: mati";
   }
 
+  /* Kendaraan dilihat dari atas, bagian depan menghadap atas (-y). Dibangun dari beberapa bagian agar
+     tampak hidup: bayangan, bodi, kaca, lampu depan, lampu rem, dan sein belok. */
+  function rectNode(cls, fill) {
+    var r = svg("rect", { class: cls });
+    if (fill) r.setAttribute("fill", fill);
+    return r;
+  }
   function carNode(c) {
-    var g = svg("g", {});
-    var w = c.w,
-      l = c.len;
-    g.appendChild(
-      svg("rect", {
-        class: "car",
-        x: -w / 2,
-        y: -l / 2,
-        width: w,
-        height: l,
-        rx: c.kind === "motor" ? 2 : 2.5,
-        fill: c.color,
-      }),
-    );
-    if (c.kind === "motor")
-      g.appendChild(svg("circle", { class: "rider", cx: 0, cy: 0, r: 2.4 }));
-    else
-      g.appendChild(
-        svg("rect", {
-          class: "glass",
-          x: -w / 2 + 1.5,
-          y: -l / 2 + 2,
-          width: w - 3,
-          height: Math.max(3, l * 0.26),
-          rx: 1,
-        }),
-      );
-    return g;
+    var motor = c.kind === "motor";
+    var g = svg("g", { class: "veh " + (motor ? "veh-motor" : "veh-car") });
+    var p = {
+      shadow: rectNode("veh-shadow"),
+      body: rectNode("car", c.color),
+      glass: rectNode("glass"),
+      rear: rectNode("glass rear"),
+      roof: rectNode("veh-roof"),
+      hl: rectNode("veh-head"),
+      hr: rectNode("veh-head"),
+      tl: rectNode("veh-tail"),
+      tr: rectNode("veh-tail"),
+      bl: svg("circle", { class: "veh-blink bl-l", r: 1.5 }),
+      br: svg("circle", { class: "veh-blink bl-r", r: 1.5 }),
+      rider: svg("circle", { class: "rider", cx: 0, r: 2.5 }),
+      bar: rectNode("veh-bar"),
+    };
+    var order = motor
+      ? ["shadow", "body", "bar", "rider", "hl", "tl", "bl", "br"]
+      : ["shadow", "body", "glass", "rear", "roof", "hl", "hr", "tl", "tr", "bl", "br"];
+    order.forEach(function (k) {
+      g.appendChild(p[k]);
+    });
+    return { el: g, p: p, kind: c.kind, len: -1, brake: null, turn: null };
+  }
+  function fitCar(n, c) {
+    var p = n.p,
+      w = c.w,
+      l = c.len,
+      set = function (node, a) {
+        Object.keys(a).forEach(function (k) {
+          node.setAttribute(k, typeof a[k] === "number" ? a[k].toFixed(1) : a[k]);
+        });
+      };
+    set(p.shadow, { x: -w / 2 + 1.4, y: -l / 2 + 1.8, width: w, height: l, rx: 3 });
+    set(p.body, { x: -w / 2, y: -l / 2, width: w, height: l, rx: n.kind === "motor" ? 2.4 : 3 });
+    if (n.kind === "motor") {
+      set(p.bar, { x: -w / 2 - 1.6, y: -l / 2 + 2.2, width: w + 3.2, height: 1.2, rx: 0.6 });
+      set(p.rider, { cy: 0.8 });
+      set(p.hl, { x: -0.9, y: -l / 2 - 0.2, width: 1.8, height: 1.2, rx: 0.5 });
+      set(p.tl, { x: -0.9, y: l / 2 - 1.3, width: 1.8, height: 1.1, rx: 0.5 });
+      set(p.bl, { cx: -w / 2 - 1.6, cy: -l / 2 + 2.8 });
+      set(p.br, { cx: w / 2 + 1.6, cy: -l / 2 + 2.8 });
+    } else {
+      set(p.glass, { x: -w / 2 + 1.4, y: -l / 2 + 2.6, width: w - 2.8, height: Math.max(2.6, l * 0.22), rx: 1.1 });
+      set(p.rear, { x: -w / 2 + 1.6, y: l / 2 - 2.6 - Math.max(2, l * 0.13), width: w - 3.2, height: Math.max(2, l * 0.13), rx: 1 });
+      set(p.roof, { x: -w / 2 + 2, y: -l * 0.1, width: w - 4, height: Math.max(3, l * 0.3), rx: 1.4 });
+      set(p.hl, { x: -w / 2 + 0.7, y: -l / 2 - 0.2, width: 2.4, height: 1.5, rx: 0.6 });
+      set(p.hr, { x: w / 2 - 3.1, y: -l / 2 - 0.2, width: 2.4, height: 1.5, rx: 0.6 });
+      set(p.tl, { x: -w / 2 + 0.7, y: l / 2 - 1.5, width: 2.4, height: 1.4, rx: 0.5 });
+      set(p.tr, { x: w / 2 - 3.1, y: l / 2 - 1.5, width: 2.4, height: 1.4, rx: 0.5 });
+      set(p.bl, { cx: -w / 2 + 0.2, cy: -l / 2 + 1.2 });
+      set(p.br, { cx: w / 2 - 0.2, cy: -l / 2 + 1.2 });
+    }
+    n.len = c.len;
   }
   function paintCars() {
     var sim = traffic.sim,
@@ -1079,7 +1175,8 @@
       if (!n) {
         var layer = traffic.layers[c.lane];
         if (!layer) return;
-        n = traffic.nodes[c.id] = { el: carNode(c), kind: c.kind };
+        n = traffic.nodes[c.id] = carNode(c);
+        fitCar(n, c);
         layer.appendChild(n.el);
       }
       n.el.setAttribute(
@@ -1093,10 +1190,18 @@
           ")",
       );
       n.el.setAttribute("opacity", c.alpha < 1 ? c.alpha.toFixed(2) : "1");
-      var body = n.el.firstChild;
-      if (body && Math.abs(Number(body.getAttribute("height")) - c.len) > 0.4) {
-        body.setAttribute("height", c.len.toFixed(1));
-        body.setAttribute("y", (-c.len / 2).toFixed(1));
+      if (Math.abs(n.len - c.len) > 0.4) fitCar(n, c);
+      // lampu rem menyala saat kendaraan menunggu di lampu merah; sein menyala saat membelok
+      var lane = sim.lanes[c.lane],
+        brake = c.state === "queue" && !!lane && !lane.green;
+      if (n.brake !== brake) {
+        n.brake = brake;
+        n.el.classList.toggle("braking", brake);
+      }
+      if (n.turn !== c.turn) {
+        n.turn = c.turn;
+        if (c.turn) n.el.setAttribute("data-turn", String(c.turn));
+        else n.el.removeAttribute("data-turn");
       }
     });
     Object.keys(traffic.nodes).forEach(function (id) {
