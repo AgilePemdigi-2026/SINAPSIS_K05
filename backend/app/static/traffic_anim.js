@@ -34,6 +34,11 @@
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
   function approach(cur, target, maxStep) { return cur + clamp(target - cur, -maxStep, maxStep); }
   function angleOf(dir) { return Math.atan2(dir[0], -dir[1]) * 180 / Math.PI; }  // 0 = menghadap atas layar
+  /* putar menuju sudut target lewat jalur terpendek (derajat), maksimum maxStep per langkah */
+  function turnToward(cur, target, maxStep) {
+    var diff = ((target - cur + 540) % 360) - 180;
+    return cur + clamp(diff, -maxStep, maxStep);
+  }
 
   /* Polyline lintasan dengan panjang kumulatif. Belokan memakai kurva Bezier kuadrat. */
   function makePath(points) {
@@ -99,7 +104,7 @@
   Sim.prototype.newCar = function (lane, d, lat) {
     var motor = this.rand() < 0.3;
     var car = { id: this.nextId++, lane: lane.name, kind: motor ? 'motor' : 'car', state: 'queue', d: d, lat: lat,
-                w: motor ? 5 : 10, len: motor ? 11 : 16, alpha: 1, x: 0, y: 0, angle: angleOf(GEO[lane.name].heading), s: 0, t: 0, path: null };
+                w: motor ? 5 : 10, len: motor ? 11 : 16, alpha: 1, x: 0, y: 0, angle: angleOf(GEO[lane.name].heading), s: 0, t: 0, path: null, turn: 0 };
     var palette = motor ? MOTOR_COLORS : CAR_COLORS;
     car.color = palette[Math.floor(this.rand() * palette.length)];
     this.cars.push(car);
@@ -177,12 +182,16 @@
         if (exit && head.d <= HEAD + 2 && lane.timer >= hw) {
           lane.timer = 0; lane.q.shift();
           head.state = 'cross'; head.t = 0; head.s = 0; head.path = buildPath(a, exit, head.d);
+          if (exit !== OPPOSITE[a]) {
+            var hd = GEO[a].heading, od = GEO[exit].out.dir;
+            head.turn = (hd[0] * od[1] - hd[1] * od[0]) < 0 ? -1 : 1;
+          }
         }
       }
 
       lane.q.forEach(function (c, i) {                     // merapat ke slot antrean
         var s = self.slot(lane, i);
-        c.d = approach(c.d, s.d, SPEED_Q * dt);
+        c.d = approach(c.d, s.d, Math.min(SPEED_Q, 8 + Math.abs(s.d - c.d) * 5) * dt);
         c.lat = approach(c.lat, s.lat, 40 * dt);
         c.len = approach(c.len, Math.min(c.kind === 'motor' ? 11 : 16, Math.max(6, s.spacing - 3)), 20 * dt);
         self.place(c);
@@ -195,7 +204,7 @@
         c.s += Math.min(SPEED_X, 35 + 170 * c.t) * dt;
         c.lat = approach(c.lat, 0, 60 * dt);
         var p = pathAt(c.path, c.s), pp = perp(p.dir);
-        c.x = p.x + pp[0] * c.lat; c.y = p.y + pp[1] * c.lat; c.angle = angleOf(p.dir);
+        c.x = p.x + pp[0] * c.lat; c.y = p.y + pp[1] * c.lat; c.angle = turnToward(c.angle, angleOf(p.dir), 420 * dt);
         if (c.s >= c.path.len) c.state = 'gone';
       } else if (c.state === 'fade') {
         c.alpha -= dt / FADE_S;
