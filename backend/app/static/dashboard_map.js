@@ -61,6 +61,13 @@
     return L.divIcon({ className: 'gm-icon', html: wrap, iconSize: [38, 38], iconAnchor: [19, 19], popupAnchor: [0, -18], tooltipAnchor: [16, 0] });
   }
 
+  /* teks ringkas saat penanda disorot: nama, status, dan kepadatan */
+  function tipFor(i) {
+    var st = i.koridor_hijau ? 'Koridor hijau' : i.status;
+    var pct = i.densitas_maks_pct !== null && i.densitas_maks_pct !== undefined ? ' · ' + i.densitas_maks_pct + '% padat' : '';
+    return i.nama_lokasi + ' — ' + st + pct;
+  }
+
   function popupFor(item) {
     var box = mk('div', 'gm-pop');
     box.appendChild(mk('strong', null, item.nama_lokasi));
@@ -84,7 +91,7 @@
     return box;
   }
 
-  /* opts: { el, noteEl, chipEl, listEl, onSelect(id) } -> { update(data, selectedId) } */
+  /* opts: { el, noteEl, chipEl, listEl (opsional), popup (false = tanpa popup), padding, onSelect(id) } -> { update(data, selectedId), focus(id) } */
   function create(opts) {
     var ctl = { map: null, markers: {}, sigs: {}, lines: [], corSig: '', fitKey: '', tileErrors: 0, latest: {} };
     var hasMap = typeof L !== 'undefined' && opts.el;
@@ -102,7 +109,13 @@
         }).addTo(map);
       opts.el.addEventListener('mouseleave', function () { map.scrollWheelZoom.disable(); });
       map.on('click', function () { map.scrollWheelZoom.enable(); });
-      if (typeof ResizeObserver === 'function') new ResizeObserver(function () { map.invalidateSize(); }).observe(opts.el);
+      // bila ukuran kotak peta berubah (tata letak selesai dimuat, jendela diubah), sesuaikan ulang
+      // tampilan selama pengguna belum menggeser/memperbesar sendiri
+      ['mousedown', 'wheel', 'touchstart'].forEach(function (ev) { opts.el.addEventListener(ev, function () { ctl.userMoved = true; }, { passive: true }); });
+      if (typeof ResizeObserver === 'function') new ResizeObserver(function () {
+        map.invalidateSize();
+        if (!ctl.userMoved && ctl.pts && ctl.pts.length) ctl.refit();
+      }).observe(opts.el);
       ctl.map = map;
       ctl.group = L.layerGroup().addTo(map);
       ctl.lineGroup = L.layerGroup().addTo(map);
@@ -162,13 +175,14 @@
         var m = ctl.markers[id];
         if (!m) {
           m = L.marker([i.latitude, i.longitude], { icon: iconFor(i, sel), keyboard: true, title: i.nama_lokasi, riseOnHover: true });
-          m.bindTooltip(i.nama_lokasi, { direction: 'right', offset: [8, 0], className: 'gm-tip' });
-          m.bindPopup(function () { return popupFor(ctl.latest[id] || i); }, { closeButton: true });
+          m.bindTooltip(tipFor(i), { direction: 'auto', offset: [8, 0], className: 'gm-tip' });
+          if (opts.popup !== false) m.bindPopup(function () { return popupFor(ctl.latest[id] || i); }, { closeButton: true });
           m.on('click', function () { if (opts.onSelect) opts.onSelect(id); });
           m.addTo(ctl.group);
           ctl.markers[id] = m; ctl.sigs[id] = sig;
         } else if (ctl.sigs[id] !== sig) {
           m.setIcon(iconFor(i, sel)); ctl.sigs[id] = sig;
+          m.setTooltipContent(tipFor(i));
         }
         if (sel) m.setZIndexOffset(1000); else m.setZIndexOffset(i.koridor_hijau ? 500 : 0);
       });
@@ -192,11 +206,26 @@
       var geo = items.filter(hasGeo), fitKey = geo.map(function (i) { return i.id_persimpangan; }).join(',');
       if (geo.length && ctl.fitKey !== fitKey) {
         ctl.fitKey = fitKey;
-        var pts = geo.map(function (i) { return [i.latitude, i.longitude]; });
-        ctl.map.invalidateSize();
-        if (pts.length === 1) ctl.map.setView(pts[0], 15);
-        else ctl.map.fitBounds(L.latLngBounds(pts), { padding: [56, 56], maxZoom: 15 });
+        ctl.pts = geo.map(function (i) { return [i.latitude, i.longitude]; });
+        ctl.userMoved = false;
+        ctl.refit();
       }
+    };
+
+    ctl.refit = function () {
+      var pts = ctl.pts || [];
+      if (!pts.length || !ctl.map) return;
+      ctl.map.invalidateSize();
+      if (pts.length === 1) ctl.map.setView(pts[0], 15);
+      else ctl.map.fitBounds(L.latLngBounds(pts), { padding: opts.padding || [56, 56], maxZoom: 15, animate: false });
+    };
+
+    /* pastikan persimpangan terpilih terlihat di peta (mis. dipilih dari daftar atau menu), tanpa mengubah zoom */
+    ctl.focus = function (id) {
+      var m = ctl.markers[id];
+      if (!m || !ctl.map) return;
+      // hanya geser bila titiknya hampir keluar bingkai; bila sudah terlihat, tampilan tidak diubah
+      if (!ctl.map.getBounds().pad(-0.12).contains(m.getLatLng())) ctl.map.panTo(m.getLatLng(), { animate: true, duration: 0.5 });
     };
 
     return ctl;

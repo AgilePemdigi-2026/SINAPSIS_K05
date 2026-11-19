@@ -86,4 +86,25 @@ s.update({ Utara: { n: 6, green: true } }, true); assert(s.cars.every(c => c.sta
 const a1 = new T.Sim(ALL), a2 = new T.Sim(ALL);
 [a1, a2].forEach(x => { x.update({ Utara: { n: 8, green: true } }, true); run(x, 5); });
 assert.deepStrictEqual(a1.cars.map(c => [c.id, c.x.toFixed(3), c.y.toFixed(3)]), a2.cars.map(c => [c.id, c.x.toFixed(3), c.y.toFixed(3)]));
+
+// 13) sein belok: -1 kiri, 1 kanan, 0 lurus (lalu lintas sisi kiri); sudut berputar halus tanpa lonjakan
+const tn = new T.Sim(ALL); tn.update({ Utara: { n: 20, green: true } }, true);
+const seenTurn = new Map(); let maxJump = 0; const lastAng = new Map();
+for (let t = 0; t < 14; t += 1 / 60) {
+  tn.step(1 / 60);
+  tn.cars.filter(c => c.state === 'cross').forEach(c => {
+    const end = c.path.pts[c.path.pts.length - 1];
+    seenTurn.set(c.id, { turn: c.turn, end });
+    if (lastAng.has(c.id)) maxJump = Math.max(maxJump, Math.abs(((c.angle - lastAng.get(c.id) + 540) % 360) - 180));
+    lastAng.set(c.id, c.angle);
+  });
+}
+const rec = Array.from(seenTurn.values());
+assert(rec.some(r => r.turn === 0) && rec.some(r => r.turn !== 0), 'ada yang lurus dan ada yang belok');
+rec.forEach(r => {
+  if (r.end[1] > 500) assert.strictEqual(r.turn, 0, 'Utara -> Selatan lurus tanpa sein');
+  if (r.end[0] > 700) assert.strictEqual(r.turn, -1, 'Utara -> Timur belok kiri');
+  if (r.end[0] < 0) assert.strictEqual(r.turn, 1, 'Utara -> Barat belok kanan');
+});
+assert(maxJump <= 8, 'sudut berubah halus per langkah: ' + maxJump.toFixed(2));
 console.log('traffic_anim: semua uji lulus');
