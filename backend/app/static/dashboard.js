@@ -1107,16 +1107,22 @@
   }
   /* Susunan geometri di atas peta: garis yang digambar (melengkung) bila ada, selain itu lengan lurus menurut arah (bearing). */
   function liveLayout(T, item, arms) {
-    var out = { hl: {}, badge: {}, lamp: {}, geo: null, drawn: false };
+    var out = { hl: {}, badge: {}, lamp: {}, roads: {}, geo: null, drawn: false };
     if (hasDrawnArms(item, arms)) {
       var lines = {};
-      arms.forEach(function (a) { lines[a] = item.garis_lengan[a].slice(1).map(function (p) { return toUnits(item, p); }); });
+      var Ill = window.SinapsisRoadIllus;
+      arms.forEach(function (a) {
+        var pts = item.garis_lengan[a].slice(1).map(function (p) { return toUnits(item, p); });
+        // panjang lengan dibatasi sama dengan ilustrasi jalan, supaya kendaraan tidak berjalan melewati ujung jalan yang digambar
+        lines[a] = Ill ? Ill.clip([[0, 0]].concat(pts), LIVE_RAD.end).slice(1) : pts;
+      });
       var G = T.curveGeo(arms, lines, LIVE_RAD);
       if (G.names.length === arms.length) {
         out.geo = G.geo; out.drawn = true;
         arms.forEach(function (a) {
           var cp = T.makePath(G.geo[a].center), pb = T.pathAt(cp, G.R.stop + 70), pl = T.pathAt(cp, G.R.stop + 10);
           out.hl[a] = G.geo[a].center.filter(function (q, k) { return cp.cum[k] >= 14 && cp.cum[k] <= 230; });
+          out.roads[a] = G.geo[a].center;
           out.badge[a] = { x: pb.x, y: pb.y };
           out.lamp[a] = { x: pl.x - pl.dir[1] * (LIVE_RAD.half + 8), y: pl.y + pl.dir[0] * (LIVE_RAD.half + 8) };
         });
@@ -1131,6 +1137,7 @@
     arms.forEach(function (a) {
       var th = R.geo[a].bearing;
       out.hl[a] = [rot(th, 0, -18), rot(th, 0, -LIVE_RAD.end * 0.82)].map(function (q) { return [q.x, q.y]; });
+      out.roads[a] = [rot(th, 0, 0), rot(th, 0, -LIVE_RAD.end)].map(function (q) { return [q.x, q.y]; });
       var bp = rot(th, 0, -LIVE_RAD.end * 0.74), lp = rot(th, LIVE_RAD.lane + LIVE_RAD.half * 0.9, -(LIVE_RAD.stop + 10));
       out.badge[a] = bp; out.lamp[a] = lp;
     });
@@ -1145,20 +1152,18 @@
     live.item = item;
     if (!live.el || live.id !== item.id_persimpangan) {
       destroyLive();
-      live.el = el("div", "livemap");
+      live.el = el("div", "livemap illus");
       live.id = item.id_persimpangan;
       box.appendChild(live.el);   // harus ada di DOM sebelum Leaflet dibuat
       live.map = L.map(live.el, { zoomControl: true, zoomSnap: 0.5, zoomDelta: 0.5, minZoom: 16, maxZoom: 21,
         scrollWheelZoom: false }).setView([item.latitude, item.longitude], 19);
       L.tileLayer(LIVE_TILE, { maxZoom: 21, maxNativeZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' })
-        .on("tileload", function () { live.tiles += 1; })
+        .on("tileload", function () { live.tiles += 1; if (live.el) live.el.classList.remove("no-tiles"); })
         .on("tileerror", function () {
           live.errs += 1;
-          if (live.errs >= 4 && live.tiles === 0 && !live.failed) {   // peta dasar tidak tersedia: kembali ke diagram skematik
-            live.failed = true;
-            destroyLive();
-            if (state.data) renderDiagram(state.data);
+          if (live.errs >= 4 && live.tiles === 0 && live.el) {   // peta dasar tidak tersedia: ilustrasi tetap tampil di latar polos
+            live.el.classList.add("no-tiles");
           }
         }).addTo(live.map);
       var Recenter = L.Control.extend({ options: { position: "topleft" }, onAdd: function () {
@@ -1190,17 +1195,29 @@
     item.jalur.forEach(function (l) { byArm[l.arah] = l; });
     var layers = {};
     var col = function (pct) { return pct >= KRITIS_PCT ? "#d0334a" : pct >= PADAT_PCT ? "#114eab" : "#2f9e5a"; };
+    var Ill = window.SinapsisRoadIllus, mk = Ill ? Ill.markup(LY.roads, LIVE_RAD) : null;
+    if (mk) {   // ilustrasi jalan hasil generate (aspal, marka, garis henti) menutupi jalan peta yang dipudarkan
+      var gu = svg("g", { class: "illus-under" });
+      gu.innerHTML = mk.under;
+      root.appendChild(gu);
+    }
     arms.forEach(function (a) {      // sorot jalan tiap lengan, diwarnai status kepadatan
       var l = byArm[a], pts = LY.hl[a];
       root.appendChild(svg("polyline", { class: "lm-hl", points: pts.map(function (q) { return q[0].toFixed(1) + "," + q[1].toFixed(1); }).join(" "),
         fill: "none", "stroke-linejoin": "round", "stroke-width": LIVE_RAD.half * 1.7, stroke: col(l ? l.densitas_pct : 0) }));
     });
-    root.appendChild(svg("circle", { class: "lm-core", cx: 0, cy: 0, r: LIVE_RAD.disc * 0.6 }));
+    if (mk) {
+      var gm = svg("g", { class: "illus-marks" });
+      gm.innerHTML = mk.marks;
+      root.appendChild(gm);
+    } else {
+      root.appendChild(svg("circle", { class: "lm-core", cx: 0, cy: 0, r: LIVE_RAD.disc * 0.6 }));
+    }
     arms.forEach(function (a) { layers[a] = svg("g", { class: "cars" }); root.appendChild(layers[a]); });
     arms.forEach(function (a, i) {
       var l = byArm[a], bp = LY.badge[a];
       var bg = svg("g", {});
-      bg.appendChild(svg("circle", { class: "arm-badge", r: 13 }));
+      bg.appendChild(svg("circle", { class: "arm-badge", r: 13, style: "stroke:" + col(l ? l.densitas_pct : 0) + ";stroke-width:3.5px" }));   // cincin = status kepadatan
       bg.appendChild(svg("text", { class: "arm-badge-t", y: 4.8, style: "font-size:13px" }, armLabel(a, i)));
       root.appendChild(bg);
       live.marks.push({ g: bg, x: bp.x, y: bp.y, k: 1 });
