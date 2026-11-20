@@ -748,6 +748,12 @@ tbody tr {
   height: 96px;
   flex: 0 0 auto;
 }
+.arm-preview.illus {
+  width: 200px;
+  height: 200px;
+  border-radius: 14px;
+  border: 1px solid #d7deee;
+}
 .arm-preview .ap-ground {
   fill: #e9edf4;
 }

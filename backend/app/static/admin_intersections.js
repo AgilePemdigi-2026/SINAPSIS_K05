@@ -1101,6 +1101,7 @@
       lon <= 180;
     state.draft = ok ? { lat: lat, lon: lon } : null;
     if (typeof drawArmLines === "function") drawArmLines();
+    if (armEd) drawArmPreview(selectedArms());
     $("geoReadout").textContent = ok
       ? fmtCoord(lat) + ", " + fmtCoord(lon)
       : "Belum ada titik";
@@ -1192,6 +1193,23 @@
   function drawArmPreview(arms) {
     var s = $("armPreview");
     clear(s);
+    var Ill = window.SinapsisRoadIllus,
+      T = window.SinapsisTraffic;
+    if (Ill && T && armEd && state.draft) {   // ilustrasi hasil generate dari lengan yang digambar
+      var sk = Ill.sketch(T, {
+        center: { lat: state.draft.lat, lon: state.draft.lon },
+        names: armEd.names(),
+        paths: armEd.paths(),
+      });
+      if (sk) {
+        s.setAttribute("viewBox", sk.viewBox);
+        s.classList.add("illus");
+        s.innerHTML = sk.inner;
+        return;
+      }
+    }
+    s.classList.remove("illus");
+    s.setAttribute("viewBox", "0 0 120 120");
     if (arms.length >= 1) return drawRadialPreview(s, arms.length);
     s.appendChild(
       sv("rect", {
