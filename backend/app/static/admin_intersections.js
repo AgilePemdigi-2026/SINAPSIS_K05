@@ -22,6 +22,7 @@
   var LABEL_MIN_ZOOM = 12; // nama persimpangan disembunyikan bila peta terlalu jauh
 
   var state = {
+    checked: new Set(),
     items: [],
     live: {},
     liveAt: null,
@@ -302,6 +303,7 @@
 
     gis.map = map;
     gis.layer = L.layerGroup().addTo(map);
+    map.on("zoomend", drawArmLines);
     node.addEventListener("mouseleave", function () {
       map.scrollWheelZoom.disable();
     });
@@ -316,6 +318,7 @@
     if (MODE === "add") {
       node.classList.add("pickable");
       map.on("click", function (e) {
+        if (armEd && armEd.isDrawing()) return;   // klik saat menggambar lengan = menambah titik, bukan memindah pin
         setCoordFields(e.latlng.lat, e.latlng.lng);
       });
     } else {
@@ -487,7 +490,7 @@
     if (!state.items.length) {
       var r0 = el("tr");
       var c0 = el("td", "empty-cell", "Belum ada persimpangan terdaftar.");
-      c0.colSpan = 7;
+      c0.colSpan = 9;
       r0.appendChild(c0);
       body.appendChild(r0);
       return;
@@ -501,6 +504,21 @@
         (state.freshId === id ? "fresh " : "") +
           (MODE === "list" && state.selected === id ? "sel" : ""),
       );
+      var tdChk = el("td", "sel-col");
+      var chk = document.createElement("input");
+      chk.type = "checkbox";
+      chk.checked = state.checked.has(id);
+      chk.setAttribute("aria-label", "Pilih " + it.nama_lokasi);
+      chk.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+      });
+      chk.addEventListener("change", function () {
+        if (chk.checked) state.checked.add(id);
+        else state.checked.delete(id);
+        syncDeleteUi();
+      });
+      tdChk.appendChild(chk);
+      tr.appendChild(tdChk);
       tr.appendChild(el("td", "name", it.nama_lokasi));
       var cc = coordText(it);
       tr.appendChild(el("td", cc ? "coord" : "muted", cc || "Belum diisi"));
@@ -529,6 +547,25 @@
         el("td", null, it.tipe ? it.tipe.replace(/ \(\d lengan\)/, "") : "--"),
       );
       tr.appendChild(el("td", "num", String((it.jalur || []).length)));
+      var tdA = el("td");
+      var acts = el("div", "row-actions");
+      var bArah = el("button", null, "Gambar lengan");
+      bArah.type = "button";
+      bArah.title = "Gambar garis jalan tiap lengan di peta";
+      bArah.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        openArmDialog(it);
+      });
+      var bDel = el("button", "del", "Hapus");
+      bDel.type = "button";
+      bDel.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        deleteIntersections([id]);
+      });
+      acts.appendChild(bArah);
+      acts.appendChild(bDel);
+      tdA.appendChild(acts);
+      tr.appendChild(tdA);
       if (MODE === "list") {
         tr.style.cursor = "pointer";
         tr.addEventListener("click", function () {
@@ -536,6 +573,172 @@
         });
       }
       body.appendChild(tr);
+    });
+    syncDeleteUi();
+  }
+
+  /* ---------- hapus persimpangan ---------- */
+  function syncDeleteUi() {
+    var btn = $("btnDelSel"),
+      all = $("chkAll");
+    if (btn) {
+      btn.disabled = state.checked.size === 0;
+      btn.textContent = state.checked.size ? "Hapus terpilih (" + state.checked.size + ")" : "Hapus terpilih";
+    }
+    if (all) {
+      all.checked = state.items.length > 0 && state.checked.size === state.items.length;
+      all.indeterminate = state.checked.size > 0 && state.checked.size < state.items.length;
+    }
+  }
+  function deleteIntersections(ids) {
+    var names = state.items
+      .filter(function (i) {
+        return ids.indexOf(i.id_persimpangan) >= 0;
+      })
+      .map(function (i) {
+        return i.nama_lokasi;
+      });
+    if (!names.length) return;
+    var label = names.length === 1 ? "persimpangan \"" + names[0] + "\"" : names.length + " persimpangan";
+    if (
+      !window.confirm(
+        "Hapus " + label + " beserta seluruh data lajur, deteksi, keputusan sinyal, dan alert-nya?\nTindakan ini tidak dapat dibatalkan.",
+      )
+    )
+      return;
+    var req =
+      ids.length === 1
+        ? request(API_LIST + "/" + ids[0], { method: "DELETE" })
+        : request(API_LIST + "/delete-batch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: ids }),
+          });
+    req
+      .then(function (res) {
+        ids.forEach(function (i) {
+          state.checked.delete(i);
+        });
+        if (ids.indexOf(state.selected) >= 0) state.selected = null;
+        toast((res && res.pesan) || "Persimpangan dihapus.");
+        return loadAll();
+      })
+      .then(syncDeleteUi)
+      .catch(function (e) {
+        showError(e.message);
+      });
+  }
+
+  /* ---------- gambar / perbaiki lengan persimpangan yang sudah terdaftar ---------- */
+  function openArmDialog(it) {
+    if (!hasGeo(it) || !window.L || !window.SinapsisArmEditor) {
+      toast("Persimpangan ini belum punya koordinat, isi koordinat dulu.");
+      return;
+    }
+    var names = (it.jalur || []).map(function (j) {
+      return j.arah;
+    });
+    var initial = {};
+    (it.jalur || []).forEach(function (j) {
+      if (j.path && j.path.length > 1) initial[j.arah] = j.path.slice(1);   // titik pertama = pusat persimpangan
+    });
+    var back = el("div", "dlg-back"),
+      card = el("div", "dlg-card wide");
+    card.setAttribute("role", "dialog");
+    card.setAttribute("aria-label", "Gambar lengan " + it.nama_lokasi);
+    card.appendChild(el("h3", null, "Gambar lengan · " + it.nama_lokasi));
+    card.appendChild(
+      el(
+        "p",
+        "muted",
+        "Lengan diberi nomor 1–" + names.length + " sesuai urutan di sistem. Pilih Gambar ulang pada sebuah lengan lalu klik titik-titik mengikuti jalan dari tengah persimpangan keluar, atau isi otomatis dari jalan OSM.",
+      ),
+    );
+    var mapBox = el("div", "dlg-map"),
+      ui = el("div", "arm-editor");
+    card.appendChild(mapBox);
+    card.appendChild(ui);
+    var msg = el("p", "muted", "");
+    msg.setAttribute("role", "status");
+    card.appendChild(msg);
+    var acts = el("div", "dlg-actions"),
+      bSave = el("button", "btn-primary", "Simpan"),
+      bCancel = el("button", "btn-outline", "Batal");
+    [bSave, bCancel].forEach(function (b) {
+      b.type = "button";
+      acts.appendChild(b);
+    });
+    card.appendChild(acts);
+    back.appendChild(card);
+    document.body.appendChild(back);
+    var map = L.map(mapBox, { zoomSnap: 0.5, zoomDelta: 0.5, maxZoom: 21 }).setView([it.latitude, it.longitude], 19);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 21,
+      maxNativeZoom: 19,
+      attribution: "&copy; OpenStreetMap",
+    }).addTo(map);
+    L.circleMarker([it.latitude, it.longitude], { radius: 7, color: "#fff", weight: 2, fillColor: "#0f0945", fillOpacity: 1, interactive: false }).addTo(map);
+    var ed = window.SinapsisArmEditor.create({
+      map: map,
+      container: ui,
+      fixedNames: names,
+      initial: initial,
+      center: function () {
+        return { lat: it.latitude, lon: it.longitude };
+      },
+      onAuto: function (editor) {
+        if (!window.SinapsisArms) return;
+        editor.setMessage("Mengambil data jalan dari OpenStreetMap...");
+        window.SinapsisArms.fetchArms(it.latitude, it.longitude).then(
+          function (res) {
+            var paths = detectedPaths(res);
+            if (!res.found || !paths.length) return editor.setMessage("Titik ini belum terdeteksi sebagai persimpangan. Gambar manual.");
+            if (paths.length !== names.length)
+              return editor.setMessage("Peta mendeteksi " + paths.length + " lengan, sedangkan terdaftar " + names.length + ". Gambar manual atau daftarkan ulang.");
+            names.forEach(function (n, i) {
+              editor.setPath(n, paths[i]);
+            });
+            editor.setMessage("Terisi otomatis dari jalan OSM. Periksa lalu Simpan.");
+          },
+          function () {
+            editor.setMessage("Tidak terhubung ke data jalan OpenStreetMap. Gambar manual.");
+          },
+        );
+      },
+    });
+    window.setTimeout(function () {
+      map.invalidateSize();
+    }, 50);
+    function close() {
+      ed.destroy();
+      map.remove();
+      if (back.parentNode) back.parentNode.removeChild(back);
+    }
+    bCancel.addEventListener("click", close);
+    bSave.addEventListener("click", function () {
+      ed.finish();
+      var paths = ed.paths();
+      if (!Object.keys(paths).length) {
+        msg.textContent = "Belum ada garis lengan yang digambar.";
+        return;
+      }
+      var body = {};
+      Object.keys(paths).forEach(function (a) {
+        body[a] = [[it.latitude, it.longitude]].concat(paths[a]);
+      });
+      request(API_LIST + "/" + it.id_persimpangan + "/garis-lengan", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ garis_lengan: body }),
+      })
+        .then(function () {
+          close();
+          toast("Lengan " + it.nama_lokasi + " disimpan.");
+          return reloadIntersectionData();
+        })
+        .catch(function (e) {
+          msg.textContent = e.message;
+        });
     });
   }
 
@@ -877,7 +1080,7 @@
     ["fNama", "fLat", "fLon", "fDesk"].forEach(function (id, k) {
       if ([m.nama, m.lat, m.lon, m.desk][k]) errs.push(id);
     });
-    if (selectedArms().length < MIN_ARMS) {
+    if (!armsComplete()) {
       errs.push("armsFirst");
       renderArms();
     }
@@ -897,6 +1100,7 @@
       lon >= -180 &&
       lon <= 180;
     state.draft = ok ? { lat: lat, lon: lon } : null;
+    if (typeof drawArmLines === "function") drawArmLines();
     $("geoReadout").textContent = ok
       ? fmtCoord(lat) + ", " + fmtCoord(lon)
       : "Belum ada titik";
@@ -925,21 +1129,21 @@
     lastDetectKey = "";
   var MIN_ARMS = 3; // 2 lengan hanya ruas jalan biasa
 
-  function armBoxes() {
-    return Array.prototype.slice.call(
-      document.querySelectorAll('input[name="lengan"]'),
-    );
-  }
+  /* Editor lengan: gambar garis jalan tiap lengan di peta (lihat arm_editor.js). Lengan diberi nomor 1..N. */
+  var armEd = null,
+    applyingDetect = false;
   function selectedArms() {
-    return armBoxes()
-      .filter(function (b) {
-        return b.checked;
-      })
-      .map(function (b) {
-        return b.value;
-      });
+    return armEd ? armEd.names() : [];
   }
+  function drawArmLines() {
+    if (armEd) armEd.redraw();
+  }
+  function armsComplete() {
+    return !!armEd && armEd.count() >= MIN_ARMS && armEd.count() === armEd.names().length;
+  }
+
   function armType(arms) {
+    if (arms.length >= 5) return "Persimpangan " + arms.length + " lengan";
     if (arms.length >= 4) return "Perempatan (4 lengan)";
     if (arms.length === 3) return "Pertigaan (3 lengan)";
     return "Pilih minimal " + MIN_ARMS + " lengan";
@@ -966,9 +1170,29 @@
     Timur: [112, 64, "T"],
     Barat: [8, 64, "B"],
   };
+  function drawRadialPreview(s, n) {
+    s.appendChild(sv("rect", { class: "ap-ground", x: 0, y: 0, width: 120, height: 120, rx: 6 }));
+    for (var i = 0; i < n; i++) {
+      var deg = (360 / n) * i,
+        g = sv("g", { transform: "translate(60 60) rotate(" + deg.toFixed(2) + ")" });
+      g.appendChild(sv("rect", { class: "ap-road", x: -9, y: -60, width: 18, height: 60 }));
+      s.appendChild(g);
+      var th = (deg * Math.PI) / 180,
+        t = sv("text", {
+          class: "ap-label",
+          x: (60 + 50 * Math.sin(th)).toFixed(1),
+          y: (64 - 50 * Math.cos(th)).toFixed(1),
+          "text-anchor": "middle",
+        });
+      t.textContent = String(i + 1);
+      s.appendChild(t);
+    }
+    s.appendChild(sv("circle", { class: "ap-center", cx: 60, cy: 60, r: 17 }));
+  }
   function drawArmPreview(arms) {
     var s = $("armPreview");
     clear(s);
+    if (arms.length >= 1) return drawRadialPreview(s, arms.length);
     s.appendChild(
       sv("rect", {
         class: "ap-ground",
@@ -1011,21 +1235,13 @@
     var arms = selectedArms();
     drawArmPreview(arms);
     $("armType").textContent =
-      armType(arms) + (arms.length >= MIN_ARMS ? " · " + arms.join(", ") : "");
-    $("eArms").hidden = arms.length >= MIN_ARMS;
-    $("eArms").textContent =
-      arms.length >= MIN_ARMS
-        ? ""
-        : "Pilih minimal " +
-          MIN_ARMS +
-          " lengan: pertigaan (3) atau perempatan (4).";
+      armType(arms) + (arms.length >= MIN_ARMS ? " · lengan 1–" + arms.length : "");
+    var ok = armsComplete();
+    $("eArms").hidden = ok;
+    $("eArms").textContent = ok
+      ? ""
+      : "Gambar minimal " + MIN_ARMS + " lengan (pertigaan 3, perempatan 4, atau lebih). Setiap lengan perlu minimal satu titik.";
     renderLanes();
-  }
-  function setArms(list) {
-    armBoxes().forEach(function (b) {
-      b.checked = list.indexOf(b.value) >= 0;
-    });
-    renderArms();
   }
   function say(node, text, btnLabel, onBtn) {
     node.hidden = !text;
@@ -1040,11 +1256,26 @@
       node.appendChild(b);
     }
   }
+  // lengan hasil deteksi OSM: garis tiap jalan (urut searah jarum jam dari utara) menjadi lengan 1..N
+  function detectedPaths(res) {
+    return (res.rays || [])
+      .slice(0, 8)
+      .map(function (r) {
+        return r.path || [];
+      })
+      .filter(function (p) {
+        return p.length;
+      });
+  }
+  function applyDetected(res) {
+    if (!armEd) return;
+    applyingDetect = true;
+    armEd.setPaths(detectedPaths(res));
+    applyingDetect = false;
+  }
   function describeDetect(res) {
-    var parts = res.arms.map(function (a) {
-      return res.names[a] ? a + " (" + res.names[a] + ")" : a;
-    });
-    return armType(res.arms) + ": " + parts.join(", ");
+    var n = detectedPaths(res).length;
+    return "Persimpangan " + n + " lengan (digambar mengikuti jalan OSM, lengan 1–" + n + ")";
   }
   function runDetect() {
     var d = state.draft,
@@ -1066,7 +1297,7 @@
           return;
         }
         if (!armsTouched) {
-          setArms(res.arms);
+          applyDetected(res);
           say(
             box,
             "Terdeteksi otomatis: " +
@@ -1075,16 +1306,13 @@
           );
           return;
         }
-        var same = res.arms.join() === selectedArms().join();
         say(
           box,
-          same
-            ? "Pilihan Anda sesuai dengan data peta."
-            : "Saran dari peta: " + describeDetect(res) + ".",
-          same ? "" : "Pakai saran",
+          "Saran dari peta: " + describeDetect(res) + ".",
+          "Pakai saran",
           function () {
             armsTouched = false;
-            setArms(res.arms);
+            applyDetected(res);
             say(box, "Memakai saran peta: " + describeDetect(res) + ".");
           },
         );
@@ -1097,6 +1325,26 @@
           "Deteksi otomatis tidak tersedia (tidak terhubung ke data jalan OpenStreetMap). Pilih lengan secara manual.",
         );
       });
+  }
+  function autoFillArms() {
+    var d = state.draft;
+    if (!d) return armEd.setMessage("Tentukan titik persimpangan terlebih dahulu (klik peta atau isi koordinat).");
+    if (!window.SinapsisArms) return;
+    armEd.setMessage("Mengambil data jalan dari OpenStreetMap...");
+    window.SinapsisArms.fetchArms(d.lat, d.lon).then(
+      function (res) {
+        if (!res.found || !detectedPaths(res).length) {
+          armEd.setMessage("Titik ini belum terdeteksi sebagai persimpangan. Geser pin tepat ke tengah persimpangan atau gambar manual.");
+          return;
+        }
+        armsTouched = false;
+        applyDetected(res);
+        armEd.setMessage("Terisi otomatis: " + describeDetect(res) + ". Koreksi dengan Gambar ulang / Hapus bila perlu.");
+      },
+      function () {
+        armEd.setMessage("Tidak terhubung ke data jalan OpenStreetMap. Gambar lengan secara manual.");
+      },
+    );
   }
   function scheduleDetect() {
     if (detectTimer) window.clearTimeout(detectTimer);
@@ -1183,12 +1431,23 @@
     });
   }
 
+  // garis tiap lengan dikirim dari titik persimpangan (pusat) keluar mengikuti jalan
+  function withCenter(paths, lat, lon) {
+    var out = {};
+    Object.keys(paths).forEach(function (a) {
+      out[a] = [[Number(lat), Number(lon)]].concat(paths[a]);
+    });
+    return out;
+  }
   function onSubmit(ev) {
     ev.preventDefault();
     showError("");
     var v = validate();
     if (v.errors.length) {
-      var first = v.errors[0] === "armsFirst" ? armBoxes()[0] : $(v.errors[0]);
+      var first =
+        v.errors[0] === "armsFirst"
+          ? $("armEditor").querySelector("button")
+          : $(v.errors[0]);
       first.focus();
       return;
     } // tetap di halaman tambah
@@ -1207,6 +1466,7 @@
         bentuk: armType(selectedArms()),
         jumlah_lengan: selectedArms().length,
         lengan: selectedArms(),
+        garis_lengan: withCenter(armEd.paths(), v.lat, v.lon),
         vision_feeds: selectedArms().reduce(function (feeds, lane) {
           if (state.registrationVision[lane])
             feeds[lane] = state.registrationVision[lane];
@@ -1366,6 +1626,18 @@
       "SINAPSIS " +
       (MODE === "add" ? "Registrasi Simpang Baru" : "Persimpangan Terdaftar");
     $("btnExport").addEventListener("click", exportCsv);
+    $("btnDelSel").addEventListener("click", function () {
+      deleteIntersections(Array.from(state.checked));
+    });
+    $("chkAll").addEventListener("change", function () {
+      state.checked.clear();
+      if ($("chkAll").checked)
+        state.items.forEach(function (i) {
+          state.checked.add(i.id_persimpangan);
+        });
+      renderTable();
+      syncDeleteUi();
+    });
 
     if (MODE === "add") {
       $("addSection").hidden = false;
@@ -1377,13 +1649,22 @@
         if ($("fNama").value.trim()) setErr("fNama", "eNama", "");
       });
       $("fLoop").addEventListener("change", renderLanes);
-      armBoxes().forEach(function (b) {
-        b.addEventListener("change", function () {
-          armsTouched = true;
-          renderArms();
-        });
-      });
       initMap();
+      armEd = window.SinapsisArmEditor.create({
+        map: gis.map,
+        container: $("armEditor"),
+        center: function () {
+          return state.draft ? { lat: state.draft.lat, lon: state.draft.lon } : null;
+        },
+        onChange: function () {
+          if (!applyingDetect) armsTouched = true;
+          renderArms();
+        },
+        onAuto: autoFillArms,
+        zoomTo: function () {   // menggambar jalan perlu zoom dekat
+          if (state.draft && gis.map.getZoom() < 17) gis.map.setView([state.draft.lat, state.draft.lon], 18);
+        },
+      });
       updateCounter();
       renderArms();
       prefillFromQuery();
