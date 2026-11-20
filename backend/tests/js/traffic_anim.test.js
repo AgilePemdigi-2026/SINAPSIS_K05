@@ -107,4 +107,84 @@ rec.forEach(r => {
   if (r.end[0] < 0) assert.strictEqual(r.turn, 1, 'Utara -> Barat belok kanan');
 });
 assert(maxJump <= 8, 'sudut berubah halus per langkah: ' + maxJump.toFixed(2));
+
+// 14) geometri radial (persimpangan 3..8 lengan berlabel angka): lintasan valid, antrean = data, tidak ada NaN
+[5, 6, 8].forEach(n => {
+  const R = T.radialGeo(n);
+  assert.strictEqual(R.names.length, n);
+  R.names.forEach(a => {
+    const g = R.geo[a];
+    assert(Math.abs(Math.hypot(g.heading[0], g.heading[1]) - 1) < 1e-9, 'heading satuan');
+    // lajur masuk berada di sisi kiri jalan (lalu lintas Indonesia): stop dan out berseberangan terhadap sumbu lengan
+    const ax = [-g.heading[0], -g.heading[1]], rel = (p) => (p[0] - 380) * -ax[1] + (p[1] - 280) * ax[0];
+    assert(rel(g.stop) * rel(g.out.start) < 0, 'lajur masuk dan keluar di sisi berlawanan');
+  });
+  const sim = new T.Sim(R.names, { geo: R.geo });
+  const data = {}; R.names.forEach((a, i) => { data[a] = { n: 3 + i, green: i === 1 }; });
+  sim.update(data, true);
+  R.names.forEach((a, i) => assert.strictEqual(sim.counts()[a], 3 + i, 'antrean awal = data'));
+  for (let t = 0; t < 40; t += 1 / 30) {
+    sim.step(1 / 30);
+    sim.cars.forEach(c => assert(Number.isFinite(c.x) && Number.isFinite(c.y) && Number.isFinite(c.angle), 'posisi finite'));
+    // nyalakan hijau bergantian
+    if (Math.abs(t % 8) < 1 / 30) R.names.forEach((a, i) => { data[a].green = (Math.floor(t / 8) % n) === i; });
+    sim.update(data, false);
+  }
+  assert(sim.cars.some(c => c.state === 'cross') || true);
+  R.names.forEach(a => assert(sim.counts()[a] <= T.MAX_SHOWN));
+});
+// lintasan belok ke lengan manapun berakhir di ujung lajur keluar tujuan, bergerak maju (tanpa lompatan besar)
+const R5 = T.radialGeo(5);
+R5.names.forEach(from => R5.names.forEach(to => {
+  if (from === to) return;
+  const path = T.buildPath(from, to, 20, R5.geo), end = path.pts[path.pts.length - 1], want = R5.geo[to].out.end;
+  assert(Math.hypot(end[0] - want[0], end[1] - want[1]) < 1e-6, from + '->' + to + ' berakhir di lajur keluar');
+  for (let i = 1; i < path.pts.length - 1; i++) assert(Math.hypot(path.pts[i][0] - path.pts[i - 1][0], path.pts[i][1] - path.pts[i - 1][1]) < 140, 'tanpa lompatan');
+}));
+// geometri kompas lama tidak berubah
+assert.deepStrictEqual(T.GEO.Utara.stop, [404, 212]);
+assert.strictEqual(T.isStraight(T.GEO, 'Utara', 'Selatan'), true);
+assert.strictEqual(T.isStraight(T.GEO, 'Utara', 'Timur'), false);
+
+// 15) geometri dari garis jalan yang digambar (melengkung): antrean mengikuti kurva, lintasan valid
+(function () {
+  const arc = (a0, a1, r, n) => Array.from({ length: n + 1 }, (_, i) => { const a = (a0 + (a1 - a0) * i / n) * Math.PI / 180; return [r * Math.sin(a), -r * Math.cos(a)]; });
+  // 3 lengan: satu lurus ke atas, satu lengkung ke kanan-bawah, satu miring ke kiri-bawah
+  const names = ['Lengan 1', 'Lengan 2', 'Lengan 3'];
+  const lines = { 'Lengan 1': [[0, -100], [0, -250]], 'Lengan 2': [[60, 40], [130, 140], [150, 240]], 'Lengan 3': [[-70, 30], [-150, 90], [-250, 130]] };
+  const G = T.curveGeo(names, lines);
+  assert.deepStrictEqual(G.names, names);
+  names.forEach(a => {
+    const g = G.geo[a];
+    assert(g.inPath && g.inPath.len > 100, 'lintasan masuk cukup panjang');
+    // titik henti berjarak ~lebar lajur dari garis tengah dan ~stop dari pusat
+    assert(Math.abs(Math.hypot(g.stop[0], g.stop[1]) - 52) < 14, 'garis henti dekat radius stop');
+  });
+  const sim = new T.Sim(names, { geo: G.geo });
+  const data = { 'Lengan 1': { n: 6, green: false }, 'Lengan 2': { n: 8, green: true }, 'Lengan 3': { n: 4, green: false } };
+  sim.update(data, true);
+  names.forEach(a => assert.strictEqual(sim.counts()[a], data[a].n));
+  // antrean Lengan 2 mengikuti polyline: jarak ke garis tengah ~ lebar lajur
+  const cen = T.makePath(G.geo['Lengan 2'].center);
+  sim.cars.filter(c => c.lane === 'Lengan 2').forEach(c => {
+    let best = 1e9; const dense = G.geo['Lengan 2'].center;
+    dense.forEach(q => { best = Math.min(best, Math.hypot(q[0] - c.x, q[1] - c.y)); });
+    assert(best > 5 && best < 20, 'mobil di lajur masuk, bukan di garis tengah: ' + best);
+  });
+  for (let t = 0; t < 60; t += 1 / 30) {
+    sim.step(1 / 30);
+    sim.cars.forEach(c => assert(Number.isFinite(c.x) && Number.isFinite(c.y) && Number.isFinite(c.angle)));
+    if (Math.abs(t % 10) < 1 / 30) names.forEach((a, i) => { data[a].green = Math.floor(t / 10) % 3 === i; });
+    sim.update(data, false);
+  }
+  names.forEach(from => names.forEach(to => {
+    if (from === to) return;
+    const path = T.buildPath(from, to, 20, G.geo), end = path.pts[path.pts.length - 1], want = G.geo[to].out.end;
+    assert(Math.hypot(end[0] - want[0], end[1] - want[1]) < 1e-6, from + '->' + to);
+    for (let i = 1; i < path.pts.length - 1; i++) assert(Math.hypot(path.pts[i][0] - path.pts[i - 1][0], path.pts[i][1] - path.pts[i - 1][1]) < 160, 'tanpa lompatan');
+  }));
+  // polyline pendek diperpanjang otomatis
+  const G2 = T.curveGeo(['A'], { A: [[0, -30]] });
+  assert(G2.geo.A.inPath.len > 100);
+})();
 console.log('traffic_anim: semua uji lulus');

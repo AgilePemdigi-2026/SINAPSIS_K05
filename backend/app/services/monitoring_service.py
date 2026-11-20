@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections import deque
 from datetime import datetime, timedelta
 
+import json
 import numpy as np
 
 from sqlalchemy import func, select
@@ -17,7 +18,7 @@ from app.models import (
 from app.ml.dataset import WINDOW
 from app.ml.predictor import get_predictor
 from app.services import corridor_view, green_corridor_service
-from app.services.arms import arm_type
+from app.services.arms import arm_type, effective_bearings, is_numbered
 from app.services.neuromorphic import IntersectionEngine, Params
 from app.services.sensor_source import CsvSensorSource, SensorOffline, SensorSource, SyntheticSensorSource
 from app.core.timeutil import utcnow
@@ -275,6 +276,8 @@ def dashboard(db: Session) -> dict:
             counts = [c for (c,) in db.execute(
                 select(Deteksi.jumlah_kendaraan).where(Deteksi.id_jalur.in_(lane_ids), Deteksi.waktu_deteksi == latest)
             ).all()]
+        arms_sorted = [j.arah for j in sorted(p.jalur, key=lambda j: j.id_jalur)]
+        feed_arms = arms_sorted if is_numbered(arms_sorted) else settings.LANE_NAMES
         offline = p.id_persimpangan in hub.offline
         label = "Sensor Offline" if offline else (status_label(max(counts)) if counts else "Belum ada data")
         ts = hub.last_ts.get(p.id_persimpangan)
@@ -282,13 +285,15 @@ def dashboard(db: Session) -> dict:
             "id_persimpangan": p.id_persimpangan, "nama_lokasi": p.nama_lokasi, "status": label,
             "jumlah_lengan": len(p.jalur), "tipe": arm_type([j.arah for j in sorted(p.jalur, key=lambda j: j.id_jalur)]),
             "arah_lengan": [j.arah for j in sorted(p.jalur, key=lambda j: j.id_jalur)],
+            "bearing": effective_bearings(arms_sorted, {j.arah: j.bearing for j in p.jalur}),
+            "garis_lengan": {j.arah: json.loads(j.path) for j in p.jalur if j.path},
             "jumlah_kendaraan": sum(counts), "sensor_offline": offline,
             "vision_feeds": [{
                 "arah": arah,
                 "preview": next((lane.vision_preview for lane in p.jalur if lane.arah == arah), None),
-            } for arah in settings.LANE_NAMES],
+            } for arah in feed_arms],
             "snapshots": {arah: next((lane.vision_preview for lane in p.jalur if lane.arah == arah), None)
-                          for arah in settings.LANE_NAMES},
+                          for arah in feed_arms},
             "latitude": p.latitude, "longitude": p.longitude,
             "terakhir_diperbarui": latest.isoformat() if latest else None,
             "waktu_data": ts.isoformat() if ts else None,

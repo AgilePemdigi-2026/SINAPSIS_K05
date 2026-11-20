@@ -45,7 +45,7 @@ def ensure_schema() -> None:
             "aktif_loop_virtual": "BOOLEAN NOT NULL DEFAULT TRUE",
             "status_sensor": "VARCHAR(30) NOT NULL DEFAULT 'ONLINE'",
         },
-        "jalur": {"vision_preview": "TEXT"},
+        "jalur": {"vision_preview": "TEXT", "bearing": "FLOAT", "path": "TEXT"},
     }
     insp = inspect(engine)
     tables = set(insp.get_table_names())

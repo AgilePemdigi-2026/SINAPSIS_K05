@@ -92,8 +92,10 @@ def test_arm_helpers():
 
 def test_registration_page_has_arm_picker_and_detector(client):
     page = client.get("/admin/intersections/add").text
-    assert page.count('name="lengan"') == 4 and 'id="armPreview"' in page and "/static/arm_detect.js" in page
+    assert 'id="armEditor"' in page and 'id="armPreview"' in page
+    assert "/static/arm_detect.js" in page and "/static/arm_editor.js" in page
     assert client.get("/static/arm_detect.js").status_code == 200
+    assert client.get("/static/arm_editor.js").status_code == 200
 
 
 def test_dashboard_diagram_draws_only_present_arms(client):

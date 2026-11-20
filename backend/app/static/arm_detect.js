@@ -8,6 +8,7 @@
   var ORDER = ['Utara', 'Selatan', 'Timur', 'Barat'];
   var ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
   var RADIUS_M = 45;      // jarak pencarian jalan dari titik klik
+  var PATH_M = 60;        // panjang garis lengan yang digambar otomatis
   var WALK_M = 25;        // panjang telusur sepanjang jalan untuk menentukan arah lengan
   var HIGHWAYS = 'motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|' +
                  'motorway_link|trunk_link|primary_link|secondary_link|tertiary_link';
@@ -32,6 +33,18 @@
     return 'Barat';
   }
 
+  /* Titik-titik geometri jalan sepanjang walk (tanpa titik awal), untuk menggambar lengan otomatis. */
+  function walkPts(geom, pos, step) {
+    var start = geom[pos], cur = pos, out = [];
+    while (true) {
+      var nxt = cur + step;
+      if (nxt < 0 || nxt >= geom.length) break;
+      cur = nxt; out.push([geom[cur].lat, geom[cur].lon]);
+      if (dist(start, geom[cur]) >= PATH_M) break;
+    }
+    return out;
+  }
+
   /* Telusuri satu arah sepanjang jalan dari indeks `pos` sampai WALK_M atau ujung jalan. */
   function walk(geom, pos, step) {
     var start = geom[pos], cur = pos, last = null;
@@ -49,7 +62,7 @@
   function detect(elements, lat, lon) {
     var click = { lat: lat, lon: lon };
     var ways = (elements || []).filter(function (e) { return e.type === 'way' && e.geometry && e.geometry.length > 1 && e.nodes; });
-    if (!ways.length) return { found: false, count: 0, arms: [], names: {}, junction: null };
+    if (!ways.length) return { found: false, count: 0, arms: [], names: {}, rays: [], junction: null };
 
     var nodes = {}; // id -> { pt, occ:[{w,pos}] }
     ways.forEach(function (w, wi) {
@@ -61,19 +74,36 @@
       });
     });
 
+    function mergeRays(list) {   // gabungkan arah yang berdekatan (< 25 derajat), mis. dua arah jalan bermedian
+      var sorted = list.slice().sort(function (a, b) { return a.b - b.b; }), groups = [];
+      sorted.forEach(function (r) {
+        var g = groups[groups.length - 1];
+        if (g && r.b - g.last < 25) { g.items.push(r); g.last = r.b; } else groups.push({ items: [r], last: r.b });
+      });
+      if (groups.length > 1 && (groups[0].items[0].b + 360) - groups[groups.length - 1].last < 25) {
+        var tail = groups.pop(); groups[0].items = tail.items.concat(groups[0].items);
+      }
+      return groups.map(function (g) {
+        var x = 0, y = 0, name = null, longest = [];
+        g.items.forEach(function (r) {
+          if (r.pts && r.pts.length > longest.length) longest = r.pts; x += Math.sin(r.b * Math.PI / 180); y += Math.cos(r.b * Math.PI / 180); if (!name && r.name) name = r.name; });
+        return { bearing: Math.round(((Math.atan2(x, y) * 180 / Math.PI) + 360) % 360 * 10) / 10, name: name, path: longest };
+      }).sort(function (a, b) { return a.bearing - b.bearing; });
+    }
     function armsOf(n) {
-      var out = {}, names = {};
+      var out = {}, names = {}, rays = [];
       n.occ.forEach(function (o) {
         var w = ways[o.w];
         [-1, 1].forEach(function (step) {
           var far = walk(w.geometry, o.pos, step);
           if (!far) return;
-          var b = bucket(bearing(n.pt, far));
+          var deg = bearing(n.pt, far), b = bucket(deg);
+          rays.push({ b: deg, name: w.tags && w.tags.name, pts: walkPts(w.geometry, o.pos, step) });
           out[b] = true;
           if (!names[b] && w.tags && w.tags.name) names[b] = w.tags.name;
         });
       });
-      return { arms: ORDER.filter(function (a) { return out[a]; }), names: names };
+      return { arms: ORDER.filter(function (a) { return out[a]; }), names: names, rays: mergeRays(rays) };
     }
 
     var best = null, bestD = Infinity, fallback = null, fallbackD = Infinity;
@@ -85,8 +115,8 @@
       if (a.arms.length >= 3 && d < bestD) { bestD = d; best = { n: n, a: a }; }
     });
     // Hanya simpul dengan >= 3 lengan yang dianggap persimpangan; ruas jalan biasa (2 lengan) tidak.
-    if (!best) return { found: false, count: fallback ? armsOf(fallback).arms.length : 0, arms: [], names: {}, junction: null };
-    return { found: true, count: best.a.arms.length, arms: best.a.arms, names: best.a.names, junction: best.n.pt };
+    if (!best) return { found: false, count: fallback ? armsOf(fallback).arms.length : 0, arms: [], names: {}, rays: [], junction: null };
+    return { found: true, count: best.a.arms.length, arms: best.a.arms, names: best.a.names, rays: best.a.rays, junction: best.n.pt };
   }
 
   function timeoutFetch(url, ms) {

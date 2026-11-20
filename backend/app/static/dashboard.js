@@ -962,6 +962,274 @@
     }
   }
 
+  /* ---------- diagram radial: persimpangan dengan 5+ lengan, diberi label angka ---------- */
+  function isNumberedArms(arms) {
+    return arms.length > 0 && arms.every(function (a) { return /^Lengan \d+$/.test(a); });
+  }
+  function armNo(name) { return name.replace(/^\D+/, ""); }
+
+  function renderRadial(box, item, d, arms) {
+    var T = window.SinapsisTraffic;
+    if (!T || !T.radialGeo) return false;
+    var cap = d.kapasitas_jalur || 20, n = arms.length;
+    var R = T.radialGeo(n), geo = R.geo, C = R.RAD;
+    var rad = function (deg) { return (deg * Math.PI) / 180; };
+    var rot = function (th, x, y) {
+      var c = Math.cos(rad(th)), sn = Math.sin(rad(th));
+      return { x: C.cx + x * c - y * sn, y: C.cy + x * sn + y * c };
+    };
+    var s = svg("svg", {
+      viewBox: "0 0 760 560", role: "img", class: "radial",
+      "aria-label": "Diagram persimpangan " + item.nama_lokasi + ", " + n + " lengan berlabel angka",
+    });
+    drawDefs(s);
+    s.appendChild(svg("rect", { class: "ground", x: 0, y: 0, width: 760, height: 560 }));
+    // blok kota di sektor antara dua lengan
+    arms.forEach(function (a, i) {
+      var phi = geo[a].bearing + 180 / n, q = rot(phi, 0, -150);
+      var gb = svg("g", { transform: "translate(" + q.x.toFixed(1) + " " + q.y.toFixed(1) + ") rotate(" + phi.toFixed(0) + ")", "aria-hidden": "true" });
+      gb.appendChild(svg("rect", { class: "block", x: -19, y: -26, width: 38, height: 52, rx: 6 }));
+      s.appendChild(gb);
+      var tp = rot(phi + 14, 0, -330);
+      s.appendChild(svg("circle", { class: "tree", cx: tp.x.toFixed(1), cy: tp.y.toFixed(1), r: 15 }));
+      s.appendChild(svg("circle", { class: "tree2", cx: (tp.x + 5).toFixed(1), cy: (tp.y + 5).toFixed(1), r: 9 }));
+    });
+    var armG = function (a) {
+      return svg("g", { transform: "translate(" + C.cx + " " + C.cy + ") rotate(" + geo[a].bearing.toFixed(2) + ")" });
+    };
+    arms.forEach(function (a) {
+      var g = armG(a);
+      g.appendChild(svg("rect", { class: "asphalt", x: -C.half, y: -340, width: C.half * 2, height: 340 }));
+      g.appendChild(svg("rect", { class: "asphalt-tex", x: -C.half, y: -340, width: C.half * 2, height: 340 }));
+      s.appendChild(g);
+    });
+    s.appendChild(svg("circle", { class: "asphalt", cx: C.cx, cy: C.cy, r: C.disc }));
+    s.appendChild(svg("circle", { class: "asphalt-tex", cx: C.cx, cy: C.cy, r: C.disc }));
+    arms.forEach(function (a) {
+      var g = armG(a);
+      [-C.half, C.half].forEach(function (x) {
+        g.appendChild(svg("line", { class: "edge", x1: x, x2: x, y1: -340, y2: -C.disc + 4 }));
+      });
+      g.appendChild(svg("line", { class: "median", x1: 0, x2: 0, y1: -340, y2: -C.stop - 6 }));
+      for (var x = -C.half + 6; x < C.half - 6; x += 14)
+        g.appendChild(svg("rect", { class: "zebra", x: x, y: -C.stop + 4, width: 9, height: 12, rx: 1 }));
+      g.appendChild(svg("rect", { class: "stop", x: 4, y: -C.stop - 6, width: C.half - 6, height: 4 }));
+      g.appendChild(svg("path", {
+        class: "lane-arrow", d: "M0,-9 L6,0 L2.2,0 L2.2,9 L-2.2,9 L-2.2,0 L-6,0 Z",
+        transform: "translate(" + C.lane + " " + (-(C.stop + 62)) + ") rotate(180)",
+      }));
+      s.appendChild(g);
+    });
+    s.appendChild(svg("text", { class: "center-text", x: C.cx, y: C.cy - 4 }, sentence(item.periode)));
+    s.appendChild(svg("text", { class: "center-text", x: C.cx, y: C.cy + 12 }, "Siklus " + item.siklus));
+
+    var layers = {}, byArm = {};
+    item.jalur.forEach(function (l) { byArm[l.arah] = l; });
+    arms.forEach(function (a) {
+      var lane = byArm[a], th = geo[a].bearing, no = armNo(a);
+      var g = svg("g", {});
+      if (lane)
+        g.appendChild(svg("title", {}, a + ": " + lane.jumlah_kendaraan + " kendaraan (" + lane.densitas_pct + "%). " +
+          (lane.sinyal === "HIJAU" ? "Lampu hijau " + lane.durasi + " dtk" : "Lampu merah, jatah hijau berikutnya " + lane.durasi + " dtk") +
+          (lane.spike ? ". Neuron spike" : "") + ". " + (lane.alasan || "")));
+      layers[a] = svg("g", { class: "cars" });
+      g.appendChild(layers[a]);
+      var bp = rot(th, 0, -262);                       // lencana nomor di ujung jalan
+      var bg = svg("g", { transform: "translate(" + bp.x.toFixed(1) + " " + bp.y.toFixed(1) + ")" });
+      bg.appendChild(svg("circle", { class: "arm-badge", r: 17 }));
+      bg.appendChild(svg("text", { class: "arm-badge-t", y: 5.5 }, no));
+      g.appendChild(bg);
+      if (lane) {
+        var lp = rot(th, C.lane + C.half + 16, -(C.stop + 22)), green = lane.sinyal === "HIJAU";
+        var sg = svg("g", { transform: "translate(" + lp.x.toFixed(1) + " " + lp.y.toFixed(1) + ")" });
+        sg.appendChild(svg("rect", { class: "signal-box", x: -12, y: -22, width: 24, height: 44, rx: 6 }));
+        sg.appendChild(svg("circle", { class: green ? "lamp-glow-green" : "lamp-glow-red", cx: 0, cy: green ? 10 : -10, r: 11 }));
+        sg.appendChild(svg("circle", { class: green ? "lamp-red-off" : "lamp-red-on", cx: 0, cy: -10, r: 6.5 }));
+        sg.appendChild(svg("circle", { class: green ? "lamp-green-on" : "lamp-green-off", cx: 0, cy: 10, r: 6.5 }));
+        sg.appendChild(svg("text", { class: "sig-text", x: 0, y: 38, "text-anchor": "middle" }, green ? lane.durasi + " dtk" : "Merah"));
+        g.appendChild(sg);
+        var phi = th + 180 / n, cx = C.cx + 262 * Math.sin(rad(phi)), cy = C.cy - 262 * Math.cos(rad(phi));
+        cx = Math.max(72, Math.min(688, cx)); cy = Math.max(34, Math.min(530, cy));
+        var pct = lane.densitas_pct, cg = svg("g", { transform: "translate(" + cx.toFixed(1) + " " + cy.toFixed(1) + ")" });
+        cg.appendChild(svg("rect", { class: "tag-box", x: -66, y: -27, width: 132, height: 54, rx: 9 }));
+        cg.appendChild(svg("circle", { class: "arm-badge", cx: -48, cy: -11, r: 9 }));
+        cg.appendChild(svg("text", { class: "arm-badge-t sm", x: -48, y: -7 }, no));
+        cg.appendChild(svg("text", { class: "tag-name rad", x: -34, y: -6 }, a));
+        cg.appendChild(svg("text", { class: "tag-detail rad", x: -56, y: 10 }, lane.jumlah_kendaraan + " kend. · " + pct + "% · " + densityWord(pct)));
+        cg.appendChild(svg("rect", { class: "tag-track", x: -56, y: 17, width: 112, height: 5, rx: 2.5 }));
+        cg.appendChild(svg("rect", { class: densityClass(pct), x: -56, y: 17, width: Math.max(3, Math.min(1, lane.jumlah_kendaraan / cap) * 112), height: 5, rx: 2.5 }));
+        if (lane.spike) cg.appendChild(svg("text", { class: "arm-flag", x: 60, y: -6 }, "Spike"));
+        g.appendChild(cg);
+      }
+      s.appendChild(g);
+    });
+    box.appendChild(s);
+    syncTraffic(item, arms, layers, s, geo);
+    return true;
+  }
+
+  /* ---------- Peta + animasi: animasi lalu lintas di atas peta OSM persimpangan terpilih ---------- */
+  var live = { el: null, map: null, id: null, tiles: 0, errs: 0, failed: false, tried: null, root: null, marks: [], item: null };
+  // geometri animasi dihitung dalam "unit" (1 unit ~ 0,28 m): lajur 3,4 m, mobil ~4,5 m. Skala piksel mengikuti zoom peta.
+  var LIVE_RAD = { cx: 0, cy: 0, lane: 12, half: 22, disc: 40, stop: 52, end: 240 };
+  var LIVE_M_PER_UNIT = 0.28;
+  var LIVE_TILE = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+  function liveScale() {   // piksel per unit pada zoom & lintang saat ini
+    var z = live.map.getZoom(), lat = live.item.latitude;
+    var mpp = (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, z);   // meter per piksel
+    return LIVE_M_PER_UNIT / mpp;
+  }
+  function applyLiveScale() {   // dipanggil saat zoom / geser peta: tanpa membangun ulang overlay
+    if (!live.map || !live.root || !live.item) return;
+    var p = live.map.latLngToContainerPoint([live.item.latitude, live.item.longitude]), s = liveScale();
+    live.root.setAttribute("transform", "translate(" + p.x.toFixed(1) + " " + p.y.toFixed(1) + ") scale(" + s.toFixed(4) + ")");
+    live.marks.forEach(function (m) {   // lencana & lampu: ukuran tetap terbaca, hanya posisinya ikut peta
+      m.g.setAttribute("transform", "translate(" + m.x.toFixed(1) + " " + m.y.toFixed(1) + ") scale(" + (m.k / s).toFixed(4) + ")");
+    });
+  }
+  function destroyLive() {
+    if (live.map) { try { live.map.remove(); } catch (e) { /* abaikan */ } }
+    live.el = null; live.map = null; live.id = null; live.tiles = 0; live.errs = 0; live.root = null; live.marks = [];
+  }
+  function armLabel(a, i) { return String(i + 1); }   // lengan selalu diberi nomor 1..N di peta
+  function hasGeo(item) { return !!(item && item.latitude != null && item.longitude != null && window.L); }
+
+  // koordinat lintang/bujur -> unit animasi relatif terhadap pusat persimpangan (y ke bawah)
+  function toUnits(item, p) {
+    var lat0 = item.latitude, lon0 = item.longitude;
+    var mx = (p[1] - lon0) * 111320 * Math.cos((lat0 * Math.PI) / 180), my = (p[0] - lat0) * 111132;
+    return [mx / LIVE_M_PER_UNIT, -my / LIVE_M_PER_UNIT];
+  }
+  function hasDrawnArms(item, arms) {
+    var g = item.garis_lengan || {};
+    return arms.length >= 3 && arms.every(function (a) { return g[a] && g[a].length >= 2; });
+  }
+  /* Susunan geometri di atas peta: garis yang digambar (melengkung) bila ada, selain itu lengan lurus menurut arah (bearing). */
+  function liveLayout(T, item, arms) {
+    var out = { hl: {}, badge: {}, lamp: {}, geo: null, drawn: false };
+    if (hasDrawnArms(item, arms)) {
+      var lines = {};
+      arms.forEach(function (a) { lines[a] = item.garis_lengan[a].slice(1).map(function (p) { return toUnits(item, p); }); });
+      var G = T.curveGeo(arms, lines, LIVE_RAD);
+      if (G.names.length === arms.length) {
+        out.geo = G.geo; out.drawn = true;
+        arms.forEach(function (a) {
+          var cp = T.makePath(G.geo[a].center), pb = T.pathAt(cp, G.R.stop + 70), pl = T.pathAt(cp, G.R.stop + 10);
+          out.hl[a] = G.geo[a].center.filter(function (q, k) { return cp.cum[k] >= 14 && cp.cum[k] <= 230; });
+          out.badge[a] = { x: pb.x, y: pb.y };
+          out.lamp[a] = { x: pl.x - pl.dir[1] * (LIVE_RAD.half + 8), y: pl.y + pl.dir[0] * (LIVE_RAD.half + 8) };
+        });
+        return out;
+      }
+    }
+    var bear = item.bearing || {};
+    var R = T.radialGeo(arms.length, arms.map(function (a) { return bear[a]; }), LIVE_RAD, arms);
+    var rad = function (deg) { return (deg * Math.PI) / 180; };
+    var rot = function (th, x, y) { var c = Math.cos(rad(th)), sn = Math.sin(rad(th)); return { x: x * c - y * sn, y: x * sn + y * c }; };
+    out.geo = R.geo;
+    arms.forEach(function (a) {
+      var th = R.geo[a].bearing;
+      out.hl[a] = [rot(th, 0, -18), rot(th, 0, -LIVE_RAD.end * 0.82)].map(function (q) { return [q.x, q.y]; });
+      var bp = rot(th, 0, -LIVE_RAD.end * 0.74), lp = rot(th, LIVE_RAD.lane + LIVE_RAD.half * 0.9, -(LIVE_RAD.stop + 10));
+      out.badge[a] = bp; out.lamp[a] = lp;
+    });
+    return out;
+  }
+
+  function renderLive(box, item, d, arms) {
+    var T = window.SinapsisTraffic;
+    if (!T || !T.radialGeo || !hasGeo(item)) return false;
+    if (live.tried !== item.id_persimpangan) { live.tried = item.id_persimpangan; live.failed = false; }
+    if (live.failed) return false;
+    live.item = item;
+    if (!live.el || live.id !== item.id_persimpangan) {
+      destroyLive();
+      live.el = el("div", "livemap");
+      live.id = item.id_persimpangan;
+      box.appendChild(live.el);   // harus ada di DOM sebelum Leaflet dibuat
+      live.map = L.map(live.el, { zoomControl: true, zoomSnap: 0.5, zoomDelta: 0.5, minZoom: 16, maxZoom: 21,
+        scrollWheelZoom: false }).setView([item.latitude, item.longitude], 19);
+      L.tileLayer(LIVE_TILE, { maxZoom: 21, maxNativeZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' })
+        .on("tileload", function () { live.tiles += 1; })
+        .on("tileerror", function () {
+          live.errs += 1;
+          if (live.errs >= 4 && live.tiles === 0 && !live.failed) {   // peta dasar tidak tersedia: kembali ke diagram skematik
+            live.failed = true;
+            destroyLive();
+            if (state.data) renderDiagram(state.data);
+          }
+        }).addTo(live.map);
+      var Recenter = L.Control.extend({ options: { position: "topleft" }, onAdd: function () {
+        var b = L.DomUtil.create("button", "lm-recenter leaflet-bar");
+        b.type = "button"; b.title = "Pusatkan ke persimpangan"; b.textContent = "◎";
+        L.DomEvent.disableClickPropagation(b);
+        b.addEventListener("click", function () { live.map.setView([live.item.latitude, live.item.longitude], 19); });
+        return b;
+      } });
+      new Recenter().addTo(live.map);
+      live.map.on("move zoom", applyLiveScale);
+    } else {
+      box.appendChild(live.el);   // clear(box) hanya melepas; peta tetap utuh
+      live.map.invalidateSize(false);
+    }
+    var old = live.el.querySelector("svg.live-ov");
+    if (old) old.parentNode.removeChild(old);
+    var chips = live.el.parentNode.querySelector(".live-arms");
+    if (chips) chips.parentNode.removeChild(chips);
+
+    var W = live.el.clientWidth || 760, H = live.el.clientHeight || 520;
+    var LY = liveLayout(T, item, arms), geo = LY.geo;
+    var ov = svg("svg", { class: "live-ov", viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": "Animasi lalu lintas di atas peta " + item.nama_lokasi });
+    var root = svg("g", {});
+    ov.appendChild(root);
+    live.root = root; live.marks = [];
+    var byArm = {};
+    item.jalur.forEach(function (l) { byArm[l.arah] = l; });
+    var layers = {};
+    var col = function (pct) { return pct >= KRITIS_PCT ? "#d0334a" : pct >= PADAT_PCT ? "#114eab" : "#2f9e5a"; };
+    arms.forEach(function (a) {      // sorot jalan tiap lengan, diwarnai status kepadatan
+      var l = byArm[a], pts = LY.hl[a];
+      root.appendChild(svg("polyline", { class: "lm-hl", points: pts.map(function (q) { return q[0].toFixed(1) + "," + q[1].toFixed(1); }).join(" "),
+        fill: "none", "stroke-linejoin": "round", "stroke-width": LIVE_RAD.half * 1.7, stroke: col(l ? l.densitas_pct : 0) }));
+    });
+    root.appendChild(svg("circle", { class: "lm-core", cx: 0, cy: 0, r: LIVE_RAD.disc * 0.6 }));
+    arms.forEach(function (a) { layers[a] = svg("g", { class: "cars" }); root.appendChild(layers[a]); });
+    arms.forEach(function (a, i) {
+      var l = byArm[a], bp = LY.badge[a];
+      var bg = svg("g", {});
+      bg.appendChild(svg("circle", { class: "arm-badge", r: 13 }));
+      bg.appendChild(svg("text", { class: "arm-badge-t", y: 4.8, style: "font-size:13px" }, armLabel(a, i)));
+      root.appendChild(bg);
+      live.marks.push({ g: bg, x: bp.x, y: bp.y, k: 1 });
+      if (l) {
+        var green = l.sinyal === "HIJAU", lp = LY.lamp[a];
+        var sg = svg("g", {});
+        sg.appendChild(svg("rect", { class: "signal-box", x: -12, y: -22, width: 24, height: 44, rx: 6 }));
+        sg.appendChild(svg("circle", { class: green ? "lamp-red-off" : "lamp-red-on", cx: 0, cy: -10, r: 6.5 }));
+        sg.appendChild(svg("circle", { class: green ? "lamp-green-on" : "lamp-green-off", cx: 0, cy: 10, r: 6.5 }));
+        root.appendChild(sg);
+        live.marks.push({ g: sg, x: lp.x, y: lp.y, k: 0.5 });
+      }
+    });
+    live.el.appendChild(ov);
+    applyLiveScale();
+    var list = el("div", "live-arms");
+    arms.forEach(function (a, i) {
+      var l = byArm[a]; if (!l) return;
+      var chip = el("span", "live-chip " + densityClass(l.densitas_pct).replace("q-", "c-"));
+      chip.appendChild(el("b", null, armLabel(a, i)));
+      chip.appendChild(document.createTextNode(" " + l.jumlah_kendaraan + " kend. · " + densityWord(l.densitas_pct) +
+        (l.sinyal === "HIJAU" ? " · hijau " + l.durasi + " dtk" : "")));
+      list.appendChild(chip);
+    });
+    box.appendChild(list);
+    syncTraffic(item, arms, layers, ov, geo);
+    return true;
+  }
+
   function renderDiagram(d) {
     var box = $("diagram");
     clear(box);
@@ -992,6 +1260,10 @@
     var arms = item.jalur.map(function (l) {
       return l.arah;
     });
+    if (renderLive(box, item, d, arms)) return;
+    if (live.failed && hasGeo(item))
+      box.appendChild(el("div", "banner banner-sensor", "Peta dasar tidak dapat dimuat — menampilkan diagram skematik."));
+    if (isNumberedArms(arms) && renderRadial(box, item, d, arms)) return;
     var s = svg("svg", {
       viewBox: "0 0 760 560",
       role: "img",
@@ -1227,12 +1499,12 @@
     paintCars();
     traffic.raf = window.requestAnimationFrame(frame);
   }
-  function syncTraffic(item, arms, layers, root) {
+  function syncTraffic(item, arms, layers, root, geo) {
     var T = window.SinapsisTraffic;
     if (!T) return;
-    var key = item.id_persimpangan + ":" + arms.join();
+    var key = item.id_persimpangan + ":" + arms.join() + (geo && geo[arms[0]] ? ":" + geo[arms[0]].stop[0].toFixed(0) + ":" + arms.map(function (a) { return geo[a].bearing.toFixed(0); }).join() : "");
     if (!traffic.sim || traffic.key !== key) {
-      traffic.sim = new T.Sim(arms);
+      traffic.sim = new T.Sim(arms, geo ? { geo: geo } : undefined);
       traffic.key = key;
       traffic.fresh = true;
     }

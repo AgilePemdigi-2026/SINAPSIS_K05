@@ -43,7 +43,10 @@ class SyntheticSensorSource(SensorSource):
         self.profile, self.noise = profile, noise
         self.rng = random.Random(seed)
         # indeks profil per lengan; persimpangan 2-3 lengan hanya membaca lengan yang ada
-        self.idx = [settings.LANE_NAMES.index(a) for a in (arms or settings.LANE_NAMES)]
+        names = list(arms or settings.LANE_NAMES)
+        # lengan berlabel angka (>=5 lengan) memakai profil siklik 4 entri
+        self.idx = [settings.LANE_NAMES.index(a) if a in settings.LANE_NAMES else i % len(settings.LANE_NAMES)
+                    for i, a in enumerate(names)]
 
     def read(self) -> dict:
         means, sd, hour = self.PROFILES[self.profile]

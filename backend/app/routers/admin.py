@@ -1,21 +1,22 @@
 """Fitur Kelola Sistem (khusus Administrator): persimpangan, parameter AI, pengguna, simulasi."""
 import base64
+import json
 import logging
 import math
 import re
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import ROLE_ADMIN, ROLE_PETUGAS, PASS_RULE, hash_password, require_roles
-from app.models import Jalur, KonfigurasiSistem, Pengguna, Persimpangan, SimulasiSkenario
-from app.schemas import IntersectionCreate, ParameterUpdate, SimulationRequest, UserCreate
+from app.models import AktivitasNeuron, Deteksi, DetailRute, Jalur, KeputusanSinyal, NotifikasiAlert, KonfigurasiSistem, Pengguna, Persimpangan, SimulasiSkenario
+from app.schemas import IntersectionBearingUpdate, IntersectionCreate, IntersectionPathUpdate, IntersectionDeleteBatch, ParameterUpdate, SimulationRequest, UserCreate
 from app.services import monitoring_service as svc
-from app.services.arms import arm_type, normalize_arms
+from app.services.arms import MAX_ARMS, MIN_ARMS, NUMBERED_FROM, arm_type, effective_bearings, normalize_arms, normalize_bearings, normalize_paths, numbered_names
 from app.services.neuromorphic import Params
 from app.services.sensor_source import SyntheticSensorSource
 from app.services.simulation_service import run_simulation
@@ -30,11 +31,22 @@ _admin = require_roles(ROLE_ADMIN)
 DESKRIPSI_MAX = 250  # SRS 3.1.2 / Hi-Fi: textarea "Deskripsi & Karakteristik Arus" maks. 250 karakter
 
 
+def load_path(j: Jalur):
+    if not j.path:
+        return None
+    try:
+        return json.loads(j.path)
+    except ValueError:
+        return None
+
+
 def _intersection_dict(p: Persimpangan) -> dict:
+    bearings = effective_bearings([j.arah for j in p.jalur], {j.arah: j.bearing for j in p.jalur})
     return {"id_persimpangan": p.id_persimpangan, "nama_lokasi": p.nama_lokasi, "deskripsi": p.deskripsi,
             "latitude": p.latitude, "longitude": p.longitude, "detektor_virtual": bool(p.detektor_virtual),
             "jumlah_lengan": len(p.jalur), "tipe": arm_type([j.arah for j in p.jalur]),
-            "jalur": [{"id_jalur": j.id_jalur, "arah": j.arah, "vision_preview": j.vision_preview} for j in p.jalur]}
+            "jalur": [{"id_jalur": j.id_jalur, "arah": j.arah, "vision_preview": j.vision_preview,
+                       "bearing": bearings[j.arah], "path": load_path(j)} for j in p.jalur]}
 
 
 def _analyze_registration_feeds(feeds: dict[str, str] | None, lanes: list[str]) -> dict[str, dict]:
@@ -80,6 +92,74 @@ def list_intersections(db: Session = Depends(get_db), _=Depends(_admin)):
             for p in db.scalars(select(Persimpangan).order_by(Persimpangan.id_persimpangan)).all()]
 
 
+def _purge_intersection(db: Session, p: Persimpangan) -> None:
+    """Hapus persimpangan beserta seluruh data turunannya (jalur, deteksi, log neuron, keputusan, rute, alert)."""
+    ids = [j.id_jalur for j in p.jalur]
+    if ids:
+        for model in (Deteksi, AktivitasNeuron, KeputusanSinyal, DetailRute):
+            db.execute(delete(model).where(model.id_jalur.in_(ids)))
+    db.execute(delete(NotifikasiAlert).where(NotifikasiAlert.id_persimpangan == p.id_persimpangan))
+    pid = p.id_persimpangan
+    db.delete(p)
+    for store in (svc.hub.sources, svc.hub.engines, svc.hub.history, svc.hub.last_ts, svc.hub.last_result):
+        store.pop(pid, None)
+    svc.hub.offline.discard(pid)
+
+
+@router.delete("/intersections/{id_persimpangan}")
+def delete_intersection(id_persimpangan: int, db: Session = Depends(get_db), _=Depends(_admin)):
+    p = db.get(Persimpangan, id_persimpangan)
+    if not p:
+        raise HTTPException(404, "Persimpangan tidak ditemukan.")
+    nama = p.nama_lokasi
+    _purge_intersection(db, p)
+    db.commit()
+    return {"pesan": f"Persimpangan {nama} dihapus.", "dihapus": 1}
+
+
+@router.post("/intersections/delete-batch")
+def delete_intersections(req: IntersectionDeleteBatch, db: Session = Depends(get_db), _=Depends(_admin)):
+    rows = db.scalars(select(Persimpangan).where(Persimpangan.id_persimpangan.in_(set(req.ids)))).all()
+    for p in rows:
+        _purge_intersection(db, p)
+    db.commit()
+    return {"pesan": f"{len(rows)} persimpangan dihapus.", "dihapus": len(rows)}
+
+
+@router.put("/intersections/{id_persimpangan}/garis-lengan")
+def update_arm_paths(id_persimpangan: int, req: IntersectionPathUpdate, db: Session = Depends(get_db), _=Depends(_admin)):
+    p = db.get(Persimpangan, id_persimpangan)
+    if not p:
+        raise HTTPException(404, "Persimpangan tidak ditemukan.")
+    try:
+        paths = normalize_paths(req.garis_lengan, [j.arah for j in p.jalur])
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    for j in p.jalur:
+        if j.arah in paths:
+            j.path = json.dumps(paths[j.arah])
+    db.commit()
+    db.refresh(p)
+    return _intersection_dict(p)
+
+
+@router.put("/intersections/{id_persimpangan}/bearing")
+def update_bearing(id_persimpangan: int, req: IntersectionBearingUpdate, db: Session = Depends(get_db), _=Depends(_admin)):
+    p = db.get(Persimpangan, id_persimpangan)
+    if not p:
+        raise HTTPException(404, "Persimpangan tidak ditemukan.")
+    try:
+        bearings = normalize_bearings(req.bearing, [j.arah for j in p.jalur])
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    for j in p.jalur:
+        if j.arah in bearings:
+            j.bearing = bearings[j.arah]
+    db.commit()
+    db.refresh(p)
+    return _intersection_dict(p)
+
+
 @router.post("/intersections", status_code=201)
 def add_intersection(req: IntersectionCreate, db: Session = Depends(get_db), _=Depends(_admin)):
     nama = (req.nama_lokasi or "").strip()
@@ -104,8 +184,10 @@ def add_intersection(req: IntersectionCreate, db: Session = Depends(get_db), _=D
                 requested_arms = list(settings.LANE_NAMES)
             elif req.jumlah_lengan == 3:
                 requested_arms = list(settings.LANE_NAMES[1:])
+            elif NUMBERED_FROM <= req.jumlah_lengan <= MAX_ARMS:
+                requested_arms = numbered_names(req.jumlah_lengan)
             else:
-                raise ValueError("Jumlah lengan harus 3 atau 4.")
+                raise ValueError(f"Jumlah lengan harus antara {MIN_ARMS} dan {MAX_ARMS}.")
         lengan = normalize_arms(requested_arms)
     except ValueError as e:
         raise HTTPException(422, str(e))
@@ -113,13 +195,22 @@ def add_intersection(req: IntersectionCreate, db: Session = Depends(get_db), _=D
         raise HTTPException(422, "jumlah_lengan tidak sesuai dengan daftar lengan.")
     if req.bentuk is not None:
         bentuk = req.bentuk.strip().lower()
-        expected_bentuk = "perempatan" if len(lengan) == 4 else "pertigaan"
-        if expected_bentuk not in bentuk:
+        expected_bentuk = "perempatan" if len(lengan) == 4 else "pertigaan" if len(lengan) == 3 else None
+        if expected_bentuk and expected_bentuk not in bentuk:
             raise HTTPException(422, "bentuk tidak sesuai dengan jumlah lengan.")
+    try:
+        bearings = normalize_bearings(req.bearing, lengan)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    try:
+        paths = normalize_paths(req.garis_lengan, lengan)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
     analyzed_feeds = _analyze_registration_feeds(req.vision_feeds, lengan)
     p = Persimpangan(nama_lokasi=nama, deskripsi=deskripsi, latitude=lat, longitude=lon,
                      detektor_virtual=True if req.detektor_virtual is None else req.detektor_virtual,
-                     jalur=[Jalur(arah=a, vision_preview=analyzed_feeds.get(a, {}).get("preview")) for a in lengan])
+                     jalur=[Jalur(arah=a, vision_preview=analyzed_feeds.get(a, {}).get("preview"), bearing=bearings.get(a),
+                                  path=json.dumps(paths[a]) if a in paths else None) for a in lengan])
     try:
         db.add(p)
         db.commit()

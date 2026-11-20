@@ -1,0 +1,171 @@
+/* Editor lengan persimpangan: gambar garis jalan tiap lengan langsung di peta Leaflet.
+   Lengan diberi nomor 1..N sesuai urutan menggambar. Titik dari tengah persimpangan keluar mengikuti bentuk jalan.
+   Dipakai di form registrasi dan dialog "Gambar lengan" persimpangan yang sudah terdaftar. */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(root);
+  else root.SinapsisArmEditor = factory(root);
+})(typeof self !== 'undefined' ? self : this, function (root) {
+  'use strict';
+  var MAX_ARMS = 8, MAX_POINTS = 100;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function btn(label, title, onClick, disabled) {
+    var b = el('button', 'ae-btn', label);
+    b.type = 'button';
+    if (title) b.title = title;
+    b.disabled = !!disabled;
+    b.addEventListener('click', onClick);
+    return b;
+  }
+  function r7(v) { return Math.round(v * 1e7) / 1e7; }
+
+  /* o: { map, container, center: () => {lat, lon} | null, fixedNames?: [..], initial?: {nama: [[lat,lon],..]},
+          onChange?, onAuto?: (editor) => void } */
+  function create(o) {
+    var L = root.L, map = o.map, ui = o.container, fixed = o.fixedNames || null;
+    var arms = [], cur = -1, layer = L.layerGroup().addTo(map), alive = true, msg = '';
+    if (fixed) fixed.forEach(function (n) { arms.push(o.initial && o.initial[n] ? o.initial[n].map(function (p) { return [p[0], p[1]]; }) : []); });
+
+    function center() { return o.center ? o.center() : null; }
+    function names() {
+      if (fixed) return fixed.slice();
+      return arms.map(function (_, i) { return 'Lengan ' + (i + 1); });
+    }
+    function changed() { render(); if (o.onChange) o.onChange(api); }
+
+    function drawLines() {
+      layer.clearLayers();
+      var c = center();
+      if (!c) return;
+      arms.forEach(function (pts, i) {
+        if (!pts.length) return;
+        var active = i === cur, ll = [[c.lat, c.lon]].concat(pts);
+        L.polyline(ll, { color: active ? '#e07b00' : '#114eab', weight: 6, opacity: active ? 0.9 : 0.72, dashArray: active ? '2 8' : null, lineCap: 'round' }).addTo(layer);
+        pts.forEach(function (p, k) {
+          if (active || k < pts.length - 1) L.circleMarker(p, { radius: active ? 4 : 3, color: '#fff', weight: 1.5, fillColor: active ? '#e07b00' : '#114eab', fillOpacity: 1, interactive: false }).addTo(layer);
+        });
+        var last = pts[pts.length - 1];
+        L.marker(last, { interactive: false, keyboard: false,
+          icon: L.divIcon({ className: '', html: '<div class="arm-line-tag' + (active ? ' act' : '') + '">' + (i + 1) + '</div>', iconSize: [24, 24], iconAnchor: [12, 12] }) }).addTo(layer);
+      });
+    }
+
+    function startArm(i) {
+      if (!center()) { msg = 'Tentukan titik persimpangan terlebih dahulu (klik peta atau isi koordinat).'; render(); return; }
+      finish(true);
+      if (i == null) {
+        if (arms.length >= MAX_ARMS) { msg = 'Maksimal ' + MAX_ARMS + ' lengan.'; render(); return; }
+        arms.push([]); i = arms.length - 1;
+      } else arms[i] = [];
+      cur = i; msg = '';
+      if (o.zoomTo) o.zoomTo();
+      changed();
+    }
+    function finish(silent) {
+      if (cur < 0) return;
+      if (!arms[cur].length && !fixed) arms.splice(cur, 1);
+      cur = -1;
+      if (!silent) changed();
+    }
+    function addPoint(latlng) {
+      if (cur < 0 || arms[cur].length >= MAX_POINTS) return;
+      arms[cur].push([r7(latlng.lat), r7(latlng.lng)]);
+      msg = '';
+      changed();
+    }
+    function undo() {
+      if (cur < 0 || !arms[cur].length) return;
+      arms[cur].pop();
+      changed();
+    }
+    function removeArm(i) {
+      if (fixed) arms[i] = []; else arms.splice(i, 1);
+      if (cur === i) cur = -1; else if (cur > i && !fixed) cur -= 1;
+      changed();
+    }
+    function clearAll() {
+      arms = fixed ? fixed.map(function () { return []; }) : [];
+      cur = -1; msg = '';
+      changed();
+    }
+
+    function render() {
+      if (!alive) return;
+      drawLines();
+      if (!ui) return;
+      while (ui.firstChild) ui.removeChild(ui.firstChild);
+      var bar = el('div', 'ae-bar');
+      if (!fixed) bar.appendChild(btn('+ Tambah lengan', 'Mulai menggambar lengan berikutnya', function () { startArm(null); }, cur >= 0 && false));
+      if (cur >= 0) {
+        bar.appendChild(btn('Selesai', 'Akhiri lengan ini (Esc)', function () { finish(); }));
+        bar.appendChild(btn('Urungkan titik', 'Hapus titik terakhir', undo, !arms[cur].length));
+      }
+      if (o.onAuto) bar.appendChild(btn('Isi otomatis dari jalan OSM', 'Gambar lengan mengikuti jalan OpenStreetMap, lalu koreksi bila perlu', function () { o.onAuto(api); }));
+      if (!fixed) bar.appendChild(btn('Hapus semua', 'Hapus seluruh lengan', clearAll, !arms.length));
+      ui.appendChild(bar);
+      var hint = el('p', 'ae-hint');
+      hint.setAttribute('role', 'status');
+      hint.textContent = msg || (cur >= 0
+        ? 'Menggambar Lengan ' + (cur + 1) + ': klik titik demi titik pada peta mengikuti jalan, mulai dari tengah persimpangan ke arah luar, lalu tekan Selesai.'
+        : arms.some(function (a) { return a.length; })
+          ? 'Klik "Gambar ulang" untuk memperbaiki sebuah lengan.'
+          : 'Belum ada lengan. Tekan "+ Tambah lengan", lalu klik titik-titik mengikuti jalan di peta.');
+      ui.appendChild(hint);
+      var list = el('ul', 'ae-list');
+      var nm = names();
+      arms.forEach(function (pts, i) {
+        var li = el('li', i === cur ? 'cur' : '');
+        li.appendChild(el('b', 'ae-num', String(i + 1)));
+        li.appendChild(el('span', 'ae-name', (fixed ? nm[i] + ' · ' : '') + (pts.length ? pts.length + ' titik' : 'belum digambar')));
+        li.appendChild(btn('Gambar ulang', 'Hapus garis lalu gambar kembali', function () { startArm(i); }));
+        li.appendChild(btn(fixed ? 'Kosongkan' : 'Hapus', null, function () { removeArm(i); }));
+        list.appendChild(li);
+      });
+      ui.appendChild(list);
+    }
+
+    var onKey = function (e) { if (e.key === 'Escape' && cur >= 0) finish(); };
+    document.addEventListener('keydown', onKey);
+    map.on('click', function (e) { addPoint(e.latlng); });
+
+    var api = {
+      isDrawing: function () { return cur >= 0; },
+      names: names,
+      count: function () { return fixed ? fixed.length : arms.filter(function (a) { return a.length; }).length; },
+      // { namaLengan: [[lat,lon],...] } hanya lengan yang sudah digambar
+      paths: function () {
+        var out = {}, nm = names();
+        arms.forEach(function (pts, i) { if (pts.length) out[nm[i]] = pts.map(function (p) { return [p[0], p[1]]; }); });
+        return out;
+      },
+      setPaths: function (list) {   // list: array of [[lat,lon],..]; hanya mode bebas
+        if (fixed) return;
+        finish(true);
+        arms = list.slice(0, MAX_ARMS).map(function (pts) { return pts.slice(0, MAX_POINTS).map(function (p) { return [r7(p[0]), r7(p[1])]; }); });
+        msg = '';
+        changed();
+      },
+      setPath: function (name, pts) {   // isi satu lengan (mode nama tetap)
+        var i = names().indexOf(name);
+        if (i < 0) return;
+        if (cur === i) cur = -1;
+        arms[i] = pts.slice(0, MAX_POINTS).map(function (p) { return [r7(p[0]), r7(p[1])]; });
+        changed();
+      },
+      setMessage: function (m) { msg = m || ''; render(); },
+      redraw: render,
+      finish: finish,
+      startArm: startArm,
+      destroy: function () { alive = false; document.removeEventListener('keydown', onKey); layer.clearLayers(); map.removeLayer(layer); },
+    };
+    render();
+    return api;
+  }
+
+  return { create: create, MAX_ARMS: MAX_ARMS };
+});

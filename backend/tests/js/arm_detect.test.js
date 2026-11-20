@@ -64,4 +64,17 @@ assert.strictEqual(A.detect([way([pt(0, 0), pt(0.00001, 0)], null, [61, 62])], L
 assert.strictEqual(A.bucket(0), 'Utara'); assert.strictEqual(A.bucket(44.9), 'Utara'); assert.strictEqual(A.bucket(45), 'Timur');
 assert.strictEqual(A.bucket(180), 'Selatan'); assert.strictEqual(A.bucket(270), 'Barat'); assert.strictEqual(A.bucket(314.9), 'Barat'); assert.strictEqual(A.bucket(315), 'Utara');
 assert(/around:45,/.test(A.query(LAT, LON)) && /out geom/.test(A.query(LAT, LON)));
+
+// arah asli (rays): perempatan lurus -> 0/90/180/270; bintang 5 lengan miring -> 5 arah terpisah
+r = A.detect(cross, LAT, LON);
+assert.deepStrictEqual(r.rays.map(x => Math.round(x.bearing)), [0, 90, 180, 270]);
+const mPerDeg = 111320, rayPt = (deg) => pt(D * Math.cos(deg * Math.PI / 180), D * Math.sin(deg * Math.PI / 180) * Math.cos(LAT * Math.PI / 180) ** -1);
+const star = [10, 80, 150, 215, 300].map((deg, k) => way([pt(0, 0), rayPt(deg)], 'Jl. ' + k, [C, 500 + k]));
+r = A.detect(star, LAT, LON);
+assert(r.found); assert.strictEqual(r.rays.length, 5);
+r.rays.forEach((x, k) => assert(Math.abs(x.bearing - [10, 80, 150, 215, 300][k]) < 2, 'arah ' + k + ' = ' + x.bearing));
+// dua arah jalan berdampingan (< 25 derajat) digabung menjadi satu lengan
+const dualRays = [way([pt(0, 0), rayPt(5)], 'A', [C, 600]), way([pt(0, 0), rayPt(14)], 'A', [C, 601]), way([pt(0, 0), rayPt(185)], 'A', [C, 602]), way([pt(0, 0), rayPt(95)], 'B', [C, 603])];
+r = A.detect(dualRays, LAT, LON);
+assert.strictEqual(r.rays.length, 3);
 console.log('arm_detect: semua uji lulus');

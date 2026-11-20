@@ -7,7 +7,7 @@ Skema ini mendukung:
   - GIS & Rute Darurat (EmergencySearch, IntersectionGISCreate)
 """
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ---- Auth -----------------------------------------------------------------
@@ -34,6 +34,18 @@ class ResetPasswordRequest(BaseModel):
 
 
 # ---- Persimpangan (Admin) -------------------------------------------------
+class IntersectionDeleteBatch(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=500)
+
+
+class IntersectionPathUpdate(BaseModel):
+    garis_lengan: dict[str, list[list[float]]]
+
+
+class IntersectionBearingUpdate(BaseModel):
+    bearing: dict[str, float]
+
+
 class IntersectionCreate(BaseModel):
     nama_lokasi: Optional[str] = ""
     deskripsi: Optional[str] = None
@@ -44,6 +56,8 @@ class IntersectionCreate(BaseModel):
     jumlah_lengan: Optional[int] = None
     lengan: Optional[list[str]] = None  # None = 4 lengan; boleh 3-4 dari Utara/Selatan/Timur/Barat
     vision_feeds: Optional[dict[str, str]] = None
+    bearing: Optional[dict[str, float]] = None  # arah tiap lengan di peta (derajat dari utara, searah jarum jam)
+    garis_lengan: Optional[dict[str, list[list[float]]]] = None  # garis jalan tiap lengan yang digambar di peta
 
 
 # ---- Persimpangan GIS (Ryan) — extended dengan atribut GIS ----------------
