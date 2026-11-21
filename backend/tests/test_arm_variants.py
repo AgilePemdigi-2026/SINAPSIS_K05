@@ -1,7 +1,4 @@
 """Variasi lengan persimpangan: 4 (perempatan) dan 3 (pertigaan, arah mana pun) di registrasi, siklus, dan dashboard."""
-import shutil
-import subprocess
-from pathlib import Path
 
 import pytest
 
@@ -9,7 +6,6 @@ from app.services.arms import arm_type, normalize_arms
 
 URL = "/api/admin/intersections"
 DASH = "/api/monitoring/dashboard"
-JS_TEST = Path(__file__).parent / "js" / "arm_detect.test.js"
 
 
 def _add(client, admin, nama, lengan=None, **extra):
@@ -90,23 +86,17 @@ def test_arm_helpers():
         normalize_arms(["Utara", "Selatan"])
 
 
-def test_registration_page_has_arm_picker_and_detector(client):
+def test_registration_page_has_arm_editor(client):
     page = client.get("/admin/intersections/add").text
     assert 'id="armEditor"' in page and 'id="armPreview"' in page
-    assert "/static/arm_detect.js" in page and "/static/arm_editor.js" in page
-    assert client.get("/static/arm_detect.js").status_code == 200
+    assert "/static/arm_editor.js" in page and "Isi otomatis" not in page
+    assert "arm_detect" not in page
     assert client.get("/static/arm_editor.js").status_code == 200
 
 
 def test_dashboard_diagram_draws_only_present_arms(client):
     js = client.get("/static/dashboard.js").text
     assert "drawRoads(s, arms)" in js and "arms.indexOf(name)" in js
-
-
-@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js tidak terpasang")
-def test_arm_detection_js_unit():
-    r = subprocess.run(["node", str(JS_TEST)], capture_output=True, text=True, timeout=60)
-    assert r.returncode == 0, r.stderr + r.stdout
 
 
 def test_prediction_endpoint_before_first_cycle_does_not_break_arm_count(client, admin):

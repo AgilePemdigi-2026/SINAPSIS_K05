@@ -25,7 +25,7 @@
   function r7(v) { return Math.round(v * 1e7) / 1e7; }
 
   /* o: { map, container, center: () => {lat, lon} | null, fixedNames?: [..], initial?: {nama: [[lat,lon],..]},
-          onChange?, onAuto?: (editor) => void } */
+          onChange? } */
   function create(o) {
     var L = root.L, map = o.map, ui = o.container, fixed = o.fixedNames || null;
     var arms = [], cur = -1, layer = L.layerGroup().addTo(map), alive = true, msg = '';
@@ -93,7 +93,7 @@
     }
 
     function startArm(i) {
-      if (!center()) { msg = 'Tentukan titik persimpangan terlebih dahulu (klik peta atau isi koordinat).'; render(); return; }
+      if (!center()) { msg = 'Tentukan titik persimpangan dulu (klik peta atau isi koordinat).'; render(); return; }
       finish(true);
       if (i == null) {
         if (arms.length >= MAX_ARMS) { msg = 'Maksimal ' + MAX_ARMS + ' lengan.'; render(); return; }
@@ -142,16 +142,15 @@
         bar.appendChild(btn('Selesai', 'Akhiri lengan ini (Esc)', function () { finish(); }));
         bar.appendChild(btn('Urungkan titik', 'Hapus titik terakhir', undo, !arms[cur].length));
       }
-      if (o.onAuto) bar.appendChild(btn('Isi otomatis dari jalan OSM', 'Gambar lengan mengikuti jalan OpenStreetMap, lalu koreksi bila perlu', function () { o.onAuto(api); }));
       if (!fixed) bar.appendChild(btn('Hapus semua', 'Hapus seluruh lengan', clearAll, !arms.length));
       ui.appendChild(bar);
       var hint = el('p', 'ae-hint');
       hint.setAttribute('role', 'status');
       hint.textContent = msg || (cur >= 0
-        ? 'Menggambar Lengan ' + (cur + 1) + ': klik titik demi titik pada peta mengikuti jalan, mulai dari tengah persimpangan ke arah luar, lalu tekan Selesai.'
+        ? 'Lengan ' + (cur + 1) + ': klik di sepanjang jalan, dari tengah persimpangan ke luar. Kalau sudah, tekan Selesai.'
         : arms.some(function (a) { return a.length; })
-          ? 'Jalan melengkung? Tarik titik putih untuk membelokkan, tarik tanda "+" di tengah garis untuk menambah tikungan, klik kanan titik untuk menghapusnya. Atau "Gambar ulang".'
-          : 'Belum ada lengan. Tekan "+ Tambah lengan", lalu klik titik-titik mengikuti jalan di peta.');
+          ? 'Tarik titik putih untuk membelokkan jalan, tarik tanda + di tengah garis untuk menambah tikungan, klik kanan titik untuk menghapusnya.'
+          : 'Tekan "+ Tambah lengan", lalu klik di sepanjang jalan di peta.');
       ui.appendChild(hint);
       var list = el('ul', 'ae-list');
       var nm = names();
@@ -159,7 +158,7 @@
         var li = el('li', i === cur ? 'cur' : '');
         li.appendChild(el('b', 'ae-num', String(i + 1)));
         li.appendChild(el('span', 'ae-name', (fixed ? nm[i] + ' · ' : '') + (pts.length ? pts.length + ' titik' : 'belum digambar')));
-        li.appendChild(btn('Gambar ulang', 'Hapus garis lalu gambar kembali', function () { startArm(i); }));
+        li.appendChild(btn('Gambar ulang', 'Hapus garis lalu gambar lagi', function () { startArm(i); }));
         li.appendChild(btn(fixed ? 'Kosongkan' : 'Hapus', null, function () { removeArm(i); }));
         list.appendChild(li);
       });

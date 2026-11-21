@@ -807,14 +807,6 @@ tbody tr {
   font-weight: 600;
   color: var(--navy-2);
 }
-.arm-detect {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: var(--navy-2);
-  background: #e6edf9;
-  border-radius: 4px;
-  padding: 6px 9px;
-}
 .link-btn {
   background: none;
   border: 0;

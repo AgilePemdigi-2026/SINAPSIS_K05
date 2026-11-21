@@ -754,20 +754,11 @@
                     <div id="armEditor" class="arm-editor" aria-label="Gambar lengan persimpangan di peta"></div>
                   </div>
                 </div>
-                <p
-                  id="armDetect"
-                  class="arm-detect"
-                  role="status"
-                  aria-live="polite"
-                  hidden
-                ></p>
                 <p id="armsHint" class="hint">
-                  Gambar tiap lengan jalan langsung di peta: tentukan titik persimpangan
-                  (klik peta), tekan "+ Tambah lengan", lalu klik titik-titik
-                  mengikuti bentuk jalan dari tengah persimpangan ke arah luar.
-                  Lengan diberi nomor 1, 2, 3, ... sesuai urutan menggambar (tidak
-                  harus sejajar mata angin). Bisa juga diisi otomatis dari jalan
-                  OpenStreetMap lalu dikoreksi. Jumlah lengan menentukan bentuk diagram dan jumlah jalur kendaraan yang dipantau.</p>
+                  Klik titik persimpangan di peta, lalu gambar tiap lengan
+                  mengikuti jalannya. Lengan diberi nomor sesuai urutan
+                  menggambar.
+                </p>
                 <p id="eArms" class="ferr" role="alert" hidden></p>
               </fieldset>
 
@@ -947,7 +938,6 @@
     </footer>
 
     <script src="/static/vendor/leaflet/leaflet.js"></script>
-    <script src="/static/arm_detect.js"></script>
     <script src="/static/traffic_anim.js"></script>
     <script src="/static/road_illus.js"></script>
     <script src="/static/arm_editor.js"></script>
