@@ -55,6 +55,8 @@ class Jalur(Base):
     )
     arah: Mapped[str] = mapped_column(String(20), nullable=False)  # Utara, Selatan, Timur, Barat
     vision_preview: Mapped[str | None] = mapped_column(Text, nullable=True)
+    path: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON [[lat, lon], ...]: garis jalan lengan dari tengah keluar
+    bearing: Mapped[float | None] = mapped_column(Float, nullable=True)  # arah lengan di peta (derajat, 0 = utara, searah jarum jam)
 
     persimpangan: Mapped[Persimpangan] = relationship(back_populates="jalur")
 

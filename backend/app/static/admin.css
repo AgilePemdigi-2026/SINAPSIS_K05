@@ -748,6 +748,12 @@ tbody tr {
   height: 96px;
   flex: 0 0 auto;
 }
+.arm-preview.illus {
+  width: 200px;
+  height: 200px;
+  border-radius: 14px;
+  border: 1px solid #d7deee;
+}
 .arm-preview .ap-ground {
   fill: #e9edf4;
 }
@@ -800,14 +806,6 @@ tbody tr {
   font-size: 13px;
   font-weight: 600;
   color: var(--navy-2);
-}
-.arm-detect {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: var(--navy-2);
-  background: #e6edf9;
-  border-radius: 4px;
-  padding: 6px 9px;
 }
 .link-btn {
   background: none;

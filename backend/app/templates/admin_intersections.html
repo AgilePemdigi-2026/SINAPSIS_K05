@@ -328,6 +328,210 @@
         transition: all 0.2s ease;
       }
 
+      .sel-col {
+        width: 34px;
+      }
+      .row-actions {
+        display: flex;
+        gap: 6px;
+        white-space: nowrap;
+      }
+      .row-actions button {
+        font: inherit;
+        font-size: 12px;
+        padding: 3px 9px;
+        border-radius: 999px;
+        border: 1px solid #c3cee3;
+        background: #fff;
+        cursor: pointer;
+      }
+      .row-actions .del,
+      .btn-del:not(:disabled) {
+        color: #b3261e;
+        border-color: #e5b5b1;
+      }
+      .btn-del:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .dlg-back {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 9, 69, 0.45);
+        display: grid;
+        place-items: center;
+        z-index: 3000;
+      }
+      .dlg-card {
+        background: #fff;
+        border-radius: 14px;
+        padding: 20px;
+        width: min(460px, 92vw);
+        max-height: 90vh;
+        overflow: auto;
+      }
+      .dlg-card h3 {
+        margin: 0 0 4px;
+      }
+      .dlg-card.wide {
+        width: min(760px, 94vw);
+      }
+      .dlg-map {
+        height: 340px;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 10px 0;
+      }
+      .dlg-rows {
+        display: grid;
+        gap: 8px;
+        margin: 12px 0;
+      }
+      .dlg-rows label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+      }
+      .dlg-rows input {
+        width: 80px;
+        padding: 4px 6px;
+      }
+      .dlg-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+      }
+      .arm-multi {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
+        align-items: center;
+        margin-top: 8px;
+      }
+      .arm-count {
+        font-size: 13px;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .arm-editor {
+        margin-top: 8px;
+      }
+      .ae-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .ae-btn {
+        font: inherit;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 5px 11px;
+        border-radius: 999px;
+        border: 1px solid #c3cee3;
+        background: #fff;
+        color: #0f0945;
+        cursor: pointer;
+      }
+      .ae-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .ae-hint {
+        font-size: 12px;
+        margin: 8px 0 6px;
+        color: #3a4668;
+      }
+      .ae-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 4px;
+      }
+      .ae-list li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+      .ae-list li.cur {
+        font-weight: 700;
+        color: #b25e00;
+      }
+      .ae-num {
+        display: inline-grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #0f0945;
+        color: #fff;
+        font-size: 11px;
+      }
+      .ae-name {
+        flex: 1;
+      }
+      .arm-line-tag.act {
+        background: #e07b00;
+      }
+      .ae-vtx {
+        width: 16px;
+        height: 16px;
+        box-sizing: border-box;
+        border-radius: 50%;
+        background: #fff;
+        border: 3px solid #114eab;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45);
+        cursor: grab;
+      }
+      .ae-mid {
+        width: 16px;
+        height: 16px;
+        box-sizing: border-box;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.85);
+        border: 2px dashed #114eab;
+        color: #114eab;
+        font: 700 12px/11px sans-serif;
+        text-align: center;
+        cursor: grab;
+      }
+      .ae-mid:hover {
+        background: #fff;
+        border-style: solid;
+      }
+      .arm-bearings {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 6px 10px;
+        margin-top: 8px;
+      }
+      .arm-bearings label {
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .arm-bearings input {
+        width: 64px;
+        padding: 3px 6px;
+      }
+      .arm-line-tag {
+        background: #0f0945;
+        color: #fff;
+        border: 2px solid #fff;
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        display: grid;
+        place-items: center;
+        font-size: 11px;
+        font-weight: 800;
+      }
       .arm-chk:has(input:checked) {
         background: #dbeafe;
         border-color: var(--dishub-blue);
@@ -546,55 +750,14 @@
                     aria-label="Pratinjau bentuk persimpangan"
                   ></svg>
                   <div class="arms-pick">
-                    <div class="arm-checks">
-                      <label class="arm-chk"
-                        ><input
-                          type="checkbox"
-                          name="lengan"
-                          value="Utara"
-                          checked
-                        /><span>Utara</span></label
-                      >
-                      <label class="arm-chk"
-                        ><input
-                          type="checkbox"
-                          name="lengan"
-                          value="Selatan"
-                          checked
-                        /><span>Selatan</span></label
-                      >
-                      <label class="arm-chk"
-                        ><input
-                          type="checkbox"
-                          name="lengan"
-                          value="Timur"
-                          checked
-                        /><span>Timur</span></label
-                      >
-                      <label class="arm-chk"
-                        ><input
-                          type="checkbox"
-                          name="lengan"
-                          value="Barat"
-                          checked
-                        /><span>Barat</span></label
-                      >
-                    </div>
                     <p id="armType" class="arm-type" aria-live="polite"></p>
+                    <div id="armEditor" class="arm-editor" aria-label="Gambar lengan persimpangan di peta"></div>
                   </div>
                 </div>
-                <p
-                  id="armDetect"
-                  class="arm-detect"
-                  role="status"
-                  aria-live="polite"
-                  hidden
-                ></p>
                 <p id="armsHint" class="hint">
-                  Pilih lengan jalan yang ada: pertigaan (3) atau perempatan
-                  (4). Jumlah lengan menentukan bentuk diagram dan jumlah jalur
-                  yang dipantau. Peta mencoba mendeteksinya otomatis dari data
-                  jalan OpenStreetMap; hasilnya boleh Anda ubah.
+                  Klik titik persimpangan di peta, lalu gambar tiap lengan
+                  mengikuti jalannya. Lengan diberi nomor sesuai urutan
+                  menggambar.
                 </p>
                 <p id="eArms" class="ferr" role="alert" hidden></p>
               </fieldset>
@@ -717,6 +880,9 @@
                 <h2 id="tblTitle">Persimpangan Terdaftar</h2>
                 <div class="head-actions">
                   <span id="tblCount" class="muted"></span>
+                  <button id="btnDelSel" class="btn-outline btn-del" type="button" disabled>
+                    Hapus terpilih
+                  </button>
                   <button id="btnExport" class="btn-outline" type="button">
                     Export Table
                   </button>
@@ -726,6 +892,9 @@
                 <table id="tbl">
                   <thead>
                     <tr>
+                      <th class="sel-col">
+                        <input type="checkbox" id="chkAll" aria-label="Pilih semua persimpangan" />
+                      </th>
                       <th>Nama Lokasi</th>
                       <th>Koordinat</th>
                       <th>Status Operasi</th>
@@ -733,11 +902,12 @@
                       <th>Detektor Virtual</th>
                       <th>Bentuk</th>
                       <th class="num">Lengan</th>
+                      <th>Aksi</th>
                     </tr>
                   </thead>
                   <tbody id="tblBody">
                     <tr>
-                      <td colspan="7" class="empty-cell">Memuat data...</td>
+                      <td colspan="9" class="empty-cell">Memuat data...</td>
                     </tr>
                   </tbody>
                 </table>
@@ -768,7 +938,9 @@
     </footer>
 
     <script src="/static/vendor/leaflet/leaflet.js"></script>
-    <script src="/static/arm_detect.js"></script>
+    <script src="/static/traffic_anim.js"></script>
+    <script src="/static/road_illus.js"></script>
+    <script src="/static/arm_editor.js"></script>
     <script src="/static/admin_intersections.js"></script>
   </body>
 </html>

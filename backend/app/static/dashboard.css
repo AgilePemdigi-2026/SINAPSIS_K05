@@ -1324,3 +1324,33 @@ td.mono {
 .gm-tip {
   font-size: 12px;
 }
+
+/* diagram radial (persimpangan 5+ lengan, label angka) */
+.arm-badge { fill: #0f0945; stroke: #fff; stroke-width: 2; }
+.arm-badge-t { fill: #fff; font-size: 16px; font-weight: 800; text-anchor: middle; }
+.arm-badge-t.sm { font-size: 11px; }
+.tag-name.rad { font-size: 13px; }
+.tag-detail.rad { font-size: 11px; }
+
+/* tombol tampilan + peta hidup */
+.seg { display: inline-flex; border: 1px solid #c3cee3; border-radius: 999px; overflow: hidden; background: #fff; }
+.seg-btn { border: 0; background: transparent; padding: 5px 12px; font: inherit; font-size: 12px; font-weight: 700; color: #0f0945; cursor: pointer; }
+.seg-btn[aria-pressed="true"] { background: #0f0945; color: #fff; }
+.seg-btn:disabled { opacity: .45; cursor: not-allowed; }
+.livemap { position: relative; height: 520px; border-radius: 10px; overflow: hidden; background: #e8edf5; }
+.livemap .live-ov { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 650; pointer-events: none; }
+.lm-recenter { width: 30px; height: 30px; background: #fff; border: 0; font-size: 18px; cursor: pointer; margin-top: 6px; }
+.lm-hl { stroke-linecap: butt; opacity: .2; }
+/* ilustrasi jalan hasil generate: peta OSM hanya latar pudar supaya tidak bertabrakan dengan gambar */
+.livemap.illus .leaflet-tile-pane { opacity: .34; filter: grayscale(1) contrast(.9) brightness(1.12); }
+.livemap.illus .lm-hl { opacity: 0; }   /* status kepadatan ditampilkan lewat cincin lencana & chip, jalan tetap abu-abu */
+.livemap.illus { background: #eef1f6; }
+.livemap.no-tiles { background: repeating-linear-gradient(0deg, #eef1f6 0 38px, #e4e9f2 38px 39px), #eef1f6; }
+.lm-core { fill: rgba(17, 78, 171, .14); stroke: rgba(17, 78, 171, .55); stroke-dasharray: 4 4; }
+.live-arms { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.live-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; background: #fff; border: 1px solid #c3cee3; border-radius: 999px; padding: 3px 10px 3px 4px; }
+.live-chip b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #0f0945; color: #fff; font-size: 11px; }
+.live-chip.c-padat { border-color: #114eab; }
+.live-chip.c-kritis { border-color: #d0334a; }
+.livemap .leaflet-attribution-flag { width: 12px !important; height: 8px !important; display: inline !important; }
+.livemap .leaflet-control-attribution svg { width: auto; height: auto; }
