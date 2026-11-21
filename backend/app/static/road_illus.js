@@ -43,6 +43,33 @@
     }
     return out;
   }
+  /* Haluskan tikungan (Chaikin): titik awal & akhir tetap, sudut tajam di titik belokan menjadi lengkung. */
+  function smooth(pts, iter) {
+    var cur = pts.map(function (p) { return [p[0], p[1]]; }), n = iter == null ? 2 : iter;
+    for (var k = 0; k < n; k++) {
+      if (cur.length < 3) break;
+      var out = [cur[0]];
+      for (var i = 0; i < cur.length - 1; i++) {
+        var a = cur[i], b = cur[i + 1];
+        out.push([0.75 * a[0] + 0.25 * b[0], 0.75 * a[1] + 0.25 * b[1]]);
+        out.push([0.25 * a[0] + 0.75 * b[0], 0.25 * a[1] + 0.75 * b[1]]);
+      }
+      out.push(cur[cur.length - 1]);
+      cur = out;
+    }
+    return cur;
+  }
+  /* Perpanjang polyline lurus searah segmen terakhir sampai panjang `len` (unit). */
+  function extend(pts, len) {
+    var out = pts.map(function (p) { return [p[0], p[1]]; }), cum = cumLen(out), tot = cum[cum.length - 1];
+    if (out.length < 2 || tot >= len) return out;
+    var i = out.length - 1, dx = 0, dy = 0, d = 0;
+    while (i > 0 && d < 1e-6) { dx = out[i][0] - out[i - 1][0]; dy = out[i][1] - out[i - 1][1]; d = Math.hypot(dx, dy); i--; }
+    if (d < 1e-6) return out;
+    var last = out[out.length - 1];
+    out.push([last[0] + dx / d * (len - tot), last[1] + dy / d * (len - tot)]);
+    return out;
+  }
   function poly(pts) { return pts.map(function (p) { return f(p[0]) + ',' + f(p[1]); }).join(' '); }
 
   /* roads = { namaLengan: [[x,y],...] } garis tengah dari pusat ke luar (unit).
@@ -84,7 +111,7 @@
     var lines = {}, names = [];
     (o.names || []).forEach(function (n) {
       var p = o.paths && o.paths[n];
-      if (p && p.length) { lines[n] = p.map(function (q) { return toUnits(o.center, q); }); names.push(n); }
+      if (p && p.length) { lines[n] = smooth([[0, 0]].concat(p.map(function (q) { return toUnits(o.center, q); })), 2).slice(1); names.push(n); }
     });
     if (!names.length || !T || !T.curveGeo) return null;
     var G = T.curveGeo(names, lines, RAD), roads = {}, ext = 0;
@@ -108,5 +135,5 @@
     };
   }
 
-  return { RAD: RAD, M_PER_UNIT: M_PER_UNIT, toUnits: toUnits, along: along, clip: clip, markup: markup, sketch: sketch };
+  return { RAD: RAD, M_PER_UNIT: M_PER_UNIT, toUnits: toUnits, along: along, clip: clip, smooth: smooth, extend: extend, markup: markup, sketch: sketch };
 });

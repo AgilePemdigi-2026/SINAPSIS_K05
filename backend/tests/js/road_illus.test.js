@@ -61,4 +61,25 @@ assert.strictEqual(many(8).count, 8);
 const longSk = I.sketch(T, { center: C, names: ['Lengan 1'], paths: { 'Lengan 1': line([0, 10], [0, 300]) } });
 assert(/ 3\d\d \d+$/.test(longSk.viewBox) || longSk.viewBox.split(' ')[2] >= 240);
 
+// smooth: titik awal/akhir tetap, sudut siku menjadi lengkung (tidak ada titik di sudut aslinya)
+const sm = I.smooth([[0, 0], [100, 0], [100, 100]], 2);
+assert.deepStrictEqual(sm[0], [0, 0]); assert.deepStrictEqual(sm[sm.length - 1], [100, 100]);
+assert(sm.length > 3 && !sm.some(p => p[0] === 100 && p[1] === 0), 'sudut dihaluskan');
+assert(sm.every(p => p[0] <= 100 + 1e-9 && p[1] >= -1e-9), 'hasil tidak keluar dari cangkang titik');
+assert.deepStrictEqual(I.smooth([[0, 0], [50, 0]], 2), [[0, 0], [50, 0]], 'garis 2 titik tidak berubah');
+assert.deepStrictEqual(I.smooth([[0, 0], [10, 0], [20, 0]], 2).filter(p => p[1] !== 0), [], 'garis lurus tetap lurus');
+
+// extend: perpanjang lurus searah segmen terakhir; tidak memotong yang sudah cukup panjang
+const ex = I.extend([[0, 0], [0, -100]], 500);
+assert.deepStrictEqual(ex[ex.length - 1].map(Math.round), [0, -500]);
+assert.strictEqual(I.extend([[0, 0], [0, -900]], 500).length, 2);
+const ex2 = I.extend([[0, 0], [30, 0], [30, 0]], 100);   // segmen terakhir nol panjang -> pakai segmen sebelumnya
+assert.deepStrictEqual(ex2[ex2.length - 1].map(Math.round), [100, 0]);
+assert.deepStrictEqual(I.extend([[5, 5]], 100), [[5, 5]]);
+
+// sketch dengan tikungan: garis dibelokkan -> hasil beda dari garis lurus dan tanpa NaN
+const bent = I.sketch(T, { center: C, names: ['Lengan 1'], paths: { 'Lengan 1': line([0, 20], [0, 50], [30, 70], [60, 70]) } });
+const straight = I.sketch(T, { center: C, names: ['Lengan 1'], paths: { 'Lengan 1': line([0, 20], [60, 70]) } });
+assert(bent && straight && bent.inner !== straight.inner && !/NaN/.test(bent.svg));
+
 console.log('road_illus.test.js OK');
