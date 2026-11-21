@@ -1106,15 +1106,29 @@
     return arms.length >= 3 && arms.every(function (a) { return g[a] && g[a].length >= 2; });
   }
   /* Susunan geometri di atas peta: garis yang digambar (melengkung) bila ada, selain itu lengan lurus menurut arah (bearing). */
-  function liveLayout(T, item, arms) {
+  var LIVE_DRAW_LEN = 1800;   // jalan digambar sampai jauh di luar kotak supaya selalu mencapai tepi peta (zoom minimum 17,5)
+  var LIVE_SIM_MAX = 900;     // panjang lintasan kendaraan maksimum
+  /* jarak (unit) dari pusat persimpangan ke tepi kotak peta searah (dx,dy), supaya jalan terisi penuh sampai tepi tampilan */
+  function reachUnits(view, dx, dy) {
+    var tx = dx > 0 ? (view.W - view.cx) / dx : dx < 0 ? -view.cx / dx : Infinity;
+    var ty = dy > 0 ? (view.H - view.cy) / dy : dy < 0 ? -view.cy / dy : Infinity;
+    return Math.min(tx, ty) / view.s;
+  }
+  function liveLayout(T, item, arms, view) {
     var out = { hl: {}, badge: {}, lamp: {}, roads: {}, geo: null, drawn: false };
+    var Ill = window.SinapsisRoadIllus;
+    view = view || { W: 760, H: 520, cx: 380, cy: 260, s: 1 };
+    var longer = function (pts) { return Ill ? Ill.extend(pts, LIVE_DRAW_LEN) : pts; };
     if (hasDrawnArms(item, arms)) {
       var lines = {};
-      var Ill = window.SinapsisRoadIllus;
       arms.forEach(function (a) {
         var pts = item.garis_lengan[a].slice(1).map(function (p) { return toUnits(item, p); });
-        // panjang lengan dibatasi sama dengan ilustrasi jalan, supaya kendaraan tidak berjalan melewati ujung jalan yang digambar
-        lines[a] = Ill ? Ill.clip([[0, 0]].concat(pts), LIVE_RAD.end).slice(1) : pts;
+        if (!Ill) { lines[a] = pts; return; }
+        // tikungan dihaluskan, lalu lengan dipanjangkan lurus sampai tepi kotak peta (lintasan kendaraan ikut)
+        var sm = Ill.smooth([[0, 0]].concat(pts), 2), n = sm.length, q = sm[n - 1], r = sm[n - 2] || [0, 0];
+        var dx = q[0] - r[0], dy = q[1] - r[1], dl = Math.hypot(dx, dy) || 1;
+        var target = Math.max(LIVE_RAD.end, Math.min(LIVE_SIM_MAX, reachUnits(view, dx / dl, dy / dl) + 50));
+        lines[a] = Ill.clip(Ill.extend(sm, target), LIVE_SIM_MAX).slice(1);
       });
       var G = T.curveGeo(arms, lines, LIVE_RAD);
       if (G.names.length === arms.length) {
@@ -1122,7 +1136,7 @@
         arms.forEach(function (a) {
           var cp = T.makePath(G.geo[a].center), pb = T.pathAt(cp, G.R.stop + 70), pl = T.pathAt(cp, G.R.stop + 10);
           out.hl[a] = G.geo[a].center.filter(function (q, k) { return cp.cum[k] >= 14 && cp.cum[k] <= 230; });
-          out.roads[a] = G.geo[a].center;
+          out.roads[a] = longer(G.geo[a].center);
           out.badge[a] = { x: pb.x, y: pb.y };
           out.lamp[a] = { x: pl.x - pl.dir[1] * (LIVE_RAD.half + 8), y: pl.y + pl.dir[0] * (LIVE_RAD.half + 8) };
         });
@@ -1130,14 +1144,21 @@
       }
     }
     var bear = item.bearing || {};
-    var R = T.radialGeo(arms.length, arms.map(function (a) { return bear[a]; }), LIVE_RAD, arms);
     var rad = function (deg) { return (deg * Math.PI) / 180; };
     var rot = function (th, x, y) { var c = Math.cos(rad(th)), sn = Math.sin(rad(th)); return { x: x * c - y * sn, y: x * sn + y * c }; };
+    var bears = arms.map(function (a) { return bear[a]; });
+    var R0 = T.radialGeo(arms.length, bears, LIVE_RAD, arms), simEnd = LIVE_RAD.end;
+    arms.forEach(function (a) {   // lengan lurus juga dipanjangkan sampai tepi kotak peta
+      var th = R0.geo[a].bearing;
+      simEnd = Math.max(simEnd, Math.min(LIVE_SIM_MAX, reachUnits(view, Math.sin(rad(th)), -Math.cos(rad(th))) + 50));
+    });
+    var RAD2 = { cx: 0, cy: 0, lane: LIVE_RAD.lane, half: LIVE_RAD.half, disc: LIVE_RAD.disc, stop: LIVE_RAD.stop, end: simEnd };
+    var R = T.radialGeo(arms.length, bears, RAD2, arms);
     out.geo = R.geo;
     arms.forEach(function (a) {
       var th = R.geo[a].bearing;
       out.hl[a] = [rot(th, 0, -18), rot(th, 0, -LIVE_RAD.end * 0.82)].map(function (q) { return [q.x, q.y]; });
-      out.roads[a] = [rot(th, 0, 0), rot(th, 0, -LIVE_RAD.end)].map(function (q) { return [q.x, q.y]; });
+      out.roads[a] = [rot(th, 0, 0), rot(th, 0, -LIVE_DRAW_LEN)].map(function (q) { return [q.x, q.y]; });
       var bp = rot(th, 0, -LIVE_RAD.end * 0.74), lp = rot(th, LIVE_RAD.lane + LIVE_RAD.half * 0.9, -(LIVE_RAD.stop + 10));
       out.badge[a] = bp; out.lamp[a] = lp;
     });
@@ -1155,7 +1176,7 @@
       live.el = el("div", "livemap illus");
       live.id = item.id_persimpangan;
       box.appendChild(live.el);   // harus ada di DOM sebelum Leaflet dibuat
-      live.map = L.map(live.el, { zoomControl: true, zoomSnap: 0.5, zoomDelta: 0.5, minZoom: 16, maxZoom: 21,
+      live.map = L.map(live.el, { zoomControl: true, zoomSnap: 0.5, zoomDelta: 0.5, minZoom: 17.5, maxZoom: 21,
         scrollWheelZoom: false }).setView([item.latitude, item.longitude], 19);
       L.tileLayer(LIVE_TILE, { maxZoom: 21, maxNativeZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' })
@@ -1185,7 +1206,8 @@
     if (chips) chips.parentNode.removeChild(chips);
 
     var W = live.el.clientWidth || 760, H = live.el.clientHeight || 520;
-    var LY = liveLayout(T, item, arms), geo = LY.geo;
+    var cpx = live.map.latLngToContainerPoint([item.latitude, item.longitude]);
+    var LY = liveLayout(T, item, arms, { W: W, H: H, cx: cpx.x, cy: cpx.y, s: liveScale() }), geo = LY.geo;
     var ov = svg("svg", { class: "live-ov", viewBox: "0 0 " + W + " " + H, role: "img",
       "aria-label": "Animasi lalu lintas di atas peta " + item.nama_lokasi });
     var root = svg("g", {});
@@ -1195,7 +1217,7 @@
     item.jalur.forEach(function (l) { byArm[l.arah] = l; });
     var layers = {};
     var col = function (pct) { return pct >= KRITIS_PCT ? "#d0334a" : pct >= PADAT_PCT ? "#114eab" : "#2f9e5a"; };
-    var Ill = window.SinapsisRoadIllus, mk = Ill ? Ill.markup(LY.roads, LIVE_RAD) : null;
+    var Ill = window.SinapsisRoadIllus, mk = Ill ? Ill.markup(LY.roads, { cx: 0, cy: 0, lane: LIVE_RAD.lane, half: LIVE_RAD.half, disc: LIVE_RAD.disc, stop: LIVE_RAD.stop, end: LIVE_DRAW_LEN }) : null;
     if (mk) {   // ilustrasi jalan hasil generate (aspal, marka, garis henti) menutupi jalan peta yang dipudarkan
       var gu = svg("g", { class: "illus-under" });
       gu.innerHTML = mk.under;

@@ -38,6 +38,41 @@
     }
     function changed() { render(); if (o.onChange) o.onChange(api); }
 
+    /* Titik tarik (putih) untuk membelokkan jalan, dan tanda "+" di tengah tiap ruas untuk menambah tikungan baru.
+       Klik kanan / dobel-klik pada titik menghapusnya. Perubahan diterapkan saat tarikan dilepas. */
+    function later(fn) { setTimeout(function () { if (alive) fn(); }, 0); }
+    function addHandles(i, poly, base) {
+      var pts = arms[i];
+      pts.forEach(function (p, k) {
+        var m = L.marker(p, { draggable: true, keyboard: false, title: 'Tarik untuk membelokkan jalan · klik kanan untuk menghapus titik',
+          icon: L.divIcon({ className: '', html: '<div class="ae-vtx"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }) }).addTo(layer);
+        m.on('drag', function (e) { var x = base.slice(); x[k + 1] = e.latlng; poly.setLatLngs(x); });
+        m.on('dragend', function (e) {
+          var q = e.target.getLatLng();
+          pts[k] = [r7(q.lat), r7(q.lng)];
+          later(changed);
+        });
+        m.on('contextmenu dblclick', function (e) {
+          L.DomEvent.stop(e);
+          if (pts.length > 1) { pts.splice(k, 1); msg = ''; } else msg = 'Lengan minimal punya satu titik. Pakai "Hapus" untuk membuang lengan.';
+          later(changed);
+        });
+      });
+      if (pts.length >= MAX_POINTS) return;
+      pts.forEach(function (p, k) {
+        var a = base[k], b = base[k + 1];   // base[0] = pusat persimpangan, base[k+1] = pts[k]
+        var mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        var m = L.marker(mid, { draggable: true, keyboard: false, title: 'Tarik untuk menambah tikungan',
+          icon: L.divIcon({ className: '', html: '<div class="ae-mid">+</div>', iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(layer);
+        m.on('drag', function (e) { var x = base.slice(); x.splice(k + 1, 0, e.latlng); poly.setLatLngs(x); });
+        m.on('dragend', function (e) {
+          var q = e.target.getLatLng();
+          if (arms[i].length < MAX_POINTS) arms[i].splice(k, 0, [r7(q.lat), r7(q.lng)]);
+          later(changed);
+        });
+      });
+    }
+
     function drawLines() {
       layer.clearLayers();
       var c = center();
@@ -45,10 +80,12 @@
       arms.forEach(function (pts, i) {
         if (!pts.length) return;
         var active = i === cur, ll = [[c.lat, c.lon]].concat(pts);
-        L.polyline(ll, { color: active ? '#e07b00' : '#114eab', weight: 6, opacity: active ? 0.9 : 0.72, dashArray: active ? '2 8' : null, lineCap: 'round' }).addTo(layer);
-        pts.forEach(function (p, k) {
-          if (active || k < pts.length - 1) L.circleMarker(p, { radius: active ? 4 : 3, color: '#fff', weight: 1.5, fillColor: active ? '#e07b00' : '#114eab', fillOpacity: 1, interactive: false }).addTo(layer);
-        });
+        var poly = L.polyline(ll, { color: active ? '#e07b00' : '#114eab', weight: 6, opacity: active ? 0.9 : 0.72, dashArray: active ? '2 8' : null, lineCap: 'round' }).addTo(layer);
+        if (active) {
+          pts.forEach(function (p) {
+            L.circleMarker(p, { radius: 4, color: '#fff', weight: 1.5, fillColor: '#e07b00', fillOpacity: 1, interactive: false }).addTo(layer);
+          });
+        } else addHandles(i, poly, ll);
         var last = pts[pts.length - 1];
         L.marker(last, { interactive: false, keyboard: false,
           icon: L.divIcon({ className: '', html: '<div class="arm-line-tag' + (active ? ' act' : '') + '">' + (i + 1) + '</div>', iconSize: [24, 24], iconAnchor: [12, 12] }) }).addTo(layer);
@@ -113,7 +150,7 @@
       hint.textContent = msg || (cur >= 0
         ? 'Menggambar Lengan ' + (cur + 1) + ': klik titik demi titik pada peta mengikuti jalan, mulai dari tengah persimpangan ke arah luar, lalu tekan Selesai.'
         : arms.some(function (a) { return a.length; })
-          ? 'Klik "Gambar ulang" untuk memperbaiki sebuah lengan.'
+          ? 'Jalan melengkung? Tarik titik putih untuk membelokkan, tarik tanda "+" di tengah garis untuk menambah tikungan, klik kanan titik untuk menghapusnya. Atau "Gambar ulang".'
           : 'Belum ada lengan. Tekan "+ Tambah lengan", lalu klik titik-titik mengikuti jalan di peta.');
       ui.appendChild(hint);
       var list = el('ul', 'ae-list');

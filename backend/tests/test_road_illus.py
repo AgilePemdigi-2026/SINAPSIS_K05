@@ -27,6 +27,18 @@ def test_dashboard_draws_generated_illustration_not_osm_roads(client):
     assert "overpass" not in js.lower()
 
 
+def test_arm_editor_has_bend_handles(client):
+    js = client.get("/static/arm_editor.js").text
+    assert "ae-vtx" in js and "ae-mid" in js and "draggable: true" in js
+    page = client.get("/admin/intersections/add").text
+    assert ".ae-vtx" in page and ".ae-mid" in page
+
+
+def test_dashboard_extends_roads_to_map_edge(client):
+    js = client.get("/static/dashboard.js").text
+    assert "reachUnits" in js and "LIVE_DRAW_LEN" in js and "Ill.smooth" in js
+
+
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js tidak terpasang")
 def test_road_illus_js_unit():
     r = subprocess.run(["node", str(JS_TEST)], capture_output=True, text=True, timeout=120)
