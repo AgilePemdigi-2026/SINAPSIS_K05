@@ -34,6 +34,7 @@
     wsRetry: null,
     loaded: false,
     gis: null,
+    view: "anim",
   };
 
   function $(id) {
@@ -556,6 +557,69 @@
       grid.appendChild(card);
     });
     box.appendChild(grid);
+  }
+
+  /* ---------- tampilan CCTV (monitor besar, satu kotak per lengan) ----------
+     Hanya membaca data yang sudah ada (item.snapshots / item.jalur); tidak mengubah alur vision. */
+  function readView() {
+    try {
+      return window.localStorage.getItem("sinapsis_view") === "cctv" ? "cctv" : "anim";
+    } catch (e) {
+      return "anim";
+    }
+  }
+  function paintView() {
+    var cctv = state.view === "cctv";
+    $("viewAnim").setAttribute("aria-pressed", String(!cctv));
+    $("viewCctv").setAttribute("aria-pressed", String(cctv));
+    $("animToggle").hidden = cctv;
+    var box = $("diagram");
+    if (box) box.classList.toggle("cctv-mode", cctv);
+  }
+  function setView(v) {
+    state.view = v === "cctv" ? "cctv" : "anim";
+    try {
+      window.localStorage.setItem("sinapsis_view", state.view);
+    } catch (e) {
+      /* diabaikan */
+    }
+    paintView();
+    if (state.data) renderDiagram(state.data);
+  }
+  function wallCols(n) {
+    return n <= 1 ? 1 : n <= 4 ? 2 : n <= 9 ? 3 : 4;
+  }
+  function renderCctvWall(box, item, arms) {
+    var wall = el("div", "cctv-wall");
+    wall.style.setProperty("--cols", String(wallCols(arms.length)));
+    var snaps = item.snapshots || {};
+    arms.forEach(function (arah, i) {
+      var lane = null;
+      item.jalur.forEach(function (l) {
+        if (l.arah === arah) lane = l;
+      });
+      var tile = el("figure", "cctv-tile");
+      var screen = el("div", "cctv-screen");
+      if (snaps[arah]) {
+        var img = document.createElement("img");
+        img.src = snaps[arah];
+        img.alt = "Feed CCTV lengan " + arah;
+        screen.appendChild(img);
+      } else {
+        screen.appendChild(el("span", "cctv-noimg", "Belum ada feed"));
+      }
+      screen.appendChild(el("span", "cctv-cam", "CAM " + (i + 1)));
+      if (lane && lane.sinyal) {
+        var on = lane.sinyal === "HIJAU";
+        screen.appendChild(el("span", "cctv-sig " + (on ? "go" : "stop"), on ? "HIJAU" : "MERAH"));
+      }
+      tile.appendChild(screen);
+      var cap = arah;
+      if (lane) cap += " · " + lane.jumlah_kendaraan + " kendaraan · " + densityWord(lane.densitas_pct);
+      tile.appendChild(el("figcaption", null, cap));
+      wall.appendChild(tile);
+    });
+    box.appendChild(wall);
   }
 
   /* ---------- diagram persimpangan (SVG) ----------
@@ -1299,6 +1363,11 @@
     var arms = item.jalur.map(function (l) {
       return l.arah;
     });
+    if (state.view === "cctv") {
+      destroyLive();
+      renderCctvWall(box, item, arms);
+      return;
+    }
     if (renderLive(box, item, d, arms)) return;
     if (live.failed && hasGeo(item))
       box.appendChild(el("div", "banner banner-sensor", "Peta dasar tidak dapat dimuat — menampilkan diagram skematik."));
@@ -1882,6 +1951,14 @@
     startClock();
     showSkeleton();
     paintAnimToggle();
+    state.view = readView();
+    paintView();
+    $("viewAnim").addEventListener("click", function () {
+      setView("anim");
+    });
+    $("viewCctv").addEventListener("click", function () {
+      setView("cctv");
+    });
     $("animToggle").addEventListener("click", function () {
       var next = animEnabled() ? "off" : "on";
       try {
