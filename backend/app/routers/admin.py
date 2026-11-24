@@ -14,12 +14,12 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import ROLE_ADMIN, ROLE_PETUGAS, PASS_RULE, hash_password, require_roles
 from app.models import AktivitasNeuron, Deteksi, DetailRute, Jalur, KeputusanSinyal, NotifikasiAlert, KonfigurasiSistem, Pengguna, Persimpangan, SimulasiSkenario
-from app.schemas import IntersectionBearingUpdate, IntersectionCreate, IntersectionPathUpdate, IntersectionDeleteBatch, ParameterUpdate, SimulationRequest, UserCreate
+from app.schemas import IntersectionBearingUpdate, IntersectionCreate, IntersectionPathUpdate, IntersectionDeleteBatch, NetworkSimulationRequest, ParameterUpdate, SimulationRequest, UserCreate
 from app.services import monitoring_service as svc
 from app.services.arms import MAX_ARMS, MIN_ARMS, NUMBERED_FROM, arm_type, effective_bearings, normalize_arms, normalize_bearings, normalize_paths, numbered_names
 from app.services.neuromorphic import Params
 from app.services.sensor_source import SyntheticSensorSource
-from app.services.simulation_service import run_simulation
+from app.services.simulation_service import run_network_simulation, run_simulation
 from app.core.timeutil import utcnow
 from app.routers.vision import decode_frame, get_yolo_service
 
@@ -378,3 +378,16 @@ def simulate(req: SimulationRequest, db: Session = Depends(get_db), user=Depends
         raise HTTPException(422, "jumlah_siklus harus antara 1 dan 500.")
     return run_simulation(db, user.id_pengguna, req.profil, req.jumlah_siklus,
                           req.inject_weather_noise, req.simulasi_sensor_failure, req.seed)
+
+
+@router.post("/simulations/network")
+def simulate_network(req: NetworkSimulationRequest, db: Session = Depends(get_db), user=Depends(_admin)):
+    """Simulasi beban lalu lintas jaringan 5 persimpangan sekaligus dengan skenario gangguan selektif."""
+    if req.profil not in SyntheticSensorSource.PROFILES:
+        raise HTTPException(422, f"Profil tidak dikenal. Pilihan: {', '.join(SyntheticSensorSource.PROFILES)}")
+    if not 1 <= req.jumlah_siklus <= 100:
+        raise HTTPException(422, "jumlah_siklus harus antara 1 dan 100.")
+    return run_network_simulation(
+        db, user.id_pengguna, req.profil, req.jumlah_siklus,
+        req.gangguan_simpang_ids, req.inject_weather_noise, req.seed
+    )
