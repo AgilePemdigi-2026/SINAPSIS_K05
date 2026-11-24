@@ -64,6 +64,14 @@ def _analyze_registration_feeds(feeds: dict[str, str] | None, lanes: list[str]) 
     for lane, data_url in feeds.items():
         if lane not in lanes:
             raise HTTPException(422, f"Feed vision memiliki lajur tidak dikenal: {lane}.")
+        if isinstance(data_url, str) and (
+            data_url.startswith("/static/uploads/")
+            or data_url.endswith(".mp4")
+            or data_url.endswith(".avi")
+            or data_url.endswith(".mov")
+        ):
+            analyzed[lane] = {"count": 0, "preview": data_url}
+            continue
         if not isinstance(data_url, str) or not data_url.startswith("data:image/") or "," not in data_url:
             raise HTTPException(422, f"Feed vision untuk lajur {lane} harus berupa Data URL gambar.")
         try:
@@ -72,6 +80,7 @@ def _analyze_registration_feeds(feeds: dict[str, str] | None, lanes: list[str]) 
                 model=base_service.model,
                 confidence=base_service.confidence,
                 lane_mapper=lambda center_x, center_y, width, height, selected=lane: selected,
+                fixed_lane=lane,
             )
             result = service.detect(frame)
             encoded, annotated = cv2.imencode(".jpg", service.draw_detections(frame, result))

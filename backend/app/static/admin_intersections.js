@@ -88,8 +88,38 @@
     var headers = Object.assign({ Accept: "application/json" }, opts.headers);
     var tk = store("access_token");
     if (tk) headers.Authorization = "Bearer " + tk;
-    return fetch(url, Object.assign({}, opts, { headers: headers })).then(
-      function (res) {
+    var controller =
+      typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timeoutId =
+      opts.timeout === false || !controller
+        ? null
+        : window.setTimeout(function () {
+            controller.abort();
+          }, opts.timeout || 30000);
+    var fetchOpts = Object.assign({}, opts, { headers: headers });
+    if (controller) fetchOpts.signal = controller.signal;
+    delete fetchOpts.timeout;
+    return fetch(url, fetchOpts)
+      .finally(function () {
+        if (timeoutId) window.clearTimeout(timeoutId);
+      })
+      .catch(function (error) {
+        if (error && error.name === "AbortError") {
+          throw new Error(
+            "Permintaan ke server mencapai batas waktu. Silakan coba lagi.",
+          );
+        }
+        if (
+          error instanceof TypeError ||
+          (error && /network|failed to fetch/i.test(error.message))
+        ) {
+          throw new Error(
+            "Gagal terhubung ke server. Periksa koneksi internet Anda.",
+          );
+        }
+        throw error;
+      })
+      .then(function (res) {
         if (res.status === 401) {
           toLogin();
           var authError = new Error("Sesi berakhir. Silakan login ulang.");
@@ -119,11 +149,23 @@
   }
 
   function requestImage(url, body) {
-    var headers = { Accept: "image/jpeg" };
+    var headers = { Accept: "image/jpeg,application/json" };
     var token = store("access_token");
     if (token) headers.Authorization = "Bearer " + token;
-    return fetch(url, { method: "POST", headers: headers, body: body }).then(
-      function (response) {
+    var controller =
+      typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timeoutId = controller
+      ? window.setTimeout(function () {
+          controller.abort();
+        }, 30000)
+      : null;
+    return fetch(url, {
+      method: "POST",
+      headers: headers,
+      body: body,
+      signal: controller ? controller.signal : undefined,
+    })
+      .then(function (response) {
         if (!response.ok) {
           return response
             .json()
@@ -133,13 +175,101 @@
             .then(function (body) {
               throw new Error(
                 body.detail ||
-                  "Gagal memproses gambar (HTTP " + response.status + ").",
+                  "Gagal memproses gambar pada server (HTTP " +
+                    response.status +
+                    ").",
               );
             });
         }
+
+        var contentType = response.headers.get("content-type") || "";
+        if (contentType.indexOf("application/json") >= 0) {
+          return response.json().then(function (body) {
+            if (!body.annotated_image) {
+              throw new Error(
+                "Server tidak mengembalikan preview gambar hasil anotasi.",
+              );
+            }
+            return body.annotated_image;
+          });
+        }
         return response.blob();
-      },
-    );
+      })
+      .finally(function () {
+        if (timeoutId) window.clearTimeout(timeoutId);
+      })
+      .catch(function (error) {
+        if (error && error.name === "AbortError") {
+          throw new Error(
+            "Gagal memproses gambar pada server: permintaan mencapai batas waktu.",
+          );
+        }
+        if (
+          error instanceof TypeError ||
+          (error && /network|failed to fetch/i.test(error.message))
+        ) {
+          throw new Error(
+            "Gagal memproses gambar pada server: koneksi ke server terputus.",
+          );
+        }
+        throw error;
+      });
+  }
+
+  function requestVideo(url, body) {
+    var headers = { Accept: "application/json" };
+    var token = store("access_token");
+    if (token) headers.Authorization = "Bearer " + token;
+    var controller =
+      typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timeoutId = controller
+      ? window.setTimeout(function () {
+          controller.abort();
+        }, 120000)
+      : null;
+    return fetch(url, {
+      method: "POST",
+      headers: headers,
+      body: body,
+      signal: controller ? controller.signal : undefined,
+    })
+      .then(function (response) {
+        return response
+          .json()
+          .catch(function () {
+            return {};
+          })
+          .then(function (body) {
+            if (!response.ok) {
+              throw new Error(
+                body.detail ||
+                  "Gagal memproses video pada server (HTTP " +
+                    response.status +
+                    ").",
+              );
+            }
+            return body;
+          });
+      })
+      .finally(function () {
+        if (timeoutId) window.clearTimeout(timeoutId);
+      })
+      .catch(function (error) {
+        if (error && error.name === "AbortError") {
+          throw new Error(
+            "Gagal memproses video pada server: permintaan mencapai batas waktu.",
+          );
+        }
+        if (
+          error instanceof TypeError ||
+          (error && /network|failed to fetch/i.test(error.message))
+        ) {
+          throw new Error(
+            "Gagal memproses video pada server: koneksi ke server terputus.",
+          );
+        }
+        throw error;
+      });
   }
 
   function visionPreviewKey(intersectionId, lane) {
@@ -170,6 +300,34 @@
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
+  }
+
+  function isVideoSource(source) {
+    if (!source) return false;
+    var value = String(source).split("?")[0].toLowerCase();
+    return (
+      value.indexOf("video/") >= 0 ||
+      /\.(mp4|avi|mov|m4v)$/.test(value)
+    );
+  }
+
+  function createVisionMedia(source, altText, cssClass) {
+    var media =
+      isVideoSource(source)
+        ? document.createElement("video")
+        : document.createElement("img");
+    media.className = cssClass || "vision-media";
+    media.src = source;
+    if (media.tagName === "VIDEO") {
+      media.controls = true;
+      media.autoplay = true;
+      media.loop = true;
+      media.muted = true;
+      media.playsInline = true;
+    } else {
+      media.alt = altText || "Pratinjau hasil vision YOLOv8";
+    }
+    return media;
   }
 
   function reloadIntersectionData() {
@@ -764,13 +922,14 @@
       slot.appendChild(slotHead);
 
       var preview = el("div", "vision-preview");
-      var placeholder = document.createElement("img");
       var savedPreview =
         getVisionPreview(intersection.id_persimpangan, lane.arah) ||
         lane.vision_preview;
-      placeholder.src = savedPreview || "/static/img/placeholder_lane.jpg";
-      placeholder.className = "img-fluid rounded my-1 vision-placeholder-image";
-      placeholder.alt = "Placeholder feed Lajur " + lane.arah;
+      var placeholder = createVisionMedia(
+        savedPreview || "/static/img/placeholder_lane.jpg",
+        "Placeholder feed Lajur " + lane.arah,
+        "img-fluid rounded my-1 vision-placeholder-image",
+      );
       placeholder.addEventListener("error", function () {
         placeholder.hidden = true;
       });
@@ -781,28 +940,54 @@
       input.addEventListener("change", function () {
         var file = input.files && input.files[0];
         if (!file) return;
-        if (file.type.indexOf("image/") !== 0) {
-          showError(
-            "Upload Vision hanya menerima file gambar untuk deteksi YOLOv8.",
-          );
+        var isImage = file.type.indexOf("image/") === 0;
+        var isVideo = file.type.indexOf("video/") === 0;
+        if (!isImage && !isVideo) {
+          showError("Upload Vision hanya menerima file gambar atau video.");
           input.value = "";
           return;
         }
         update.disabled = true;
         update.textContent = "Menganalisis...";
-        var imageForm = new FormData();
-        imageForm.append("frame", file);
-        Promise.all([
-          requestImage(
+        var uploadForm = new FormData();
+        var uploadPromise;
+        if (isVideo) {
+          uploadForm.append("video", file);
+          uploadPromise = requestVideo(
+            "/api/vision/detect-video?lane=" +
+              encodeURIComponent(lane.arah) +
+              "&id_persimpangan=" +
+              encodeURIComponent(intersection.id_persimpangan),
+            uploadForm,
+          ).then(function (body) {
+            if (!body.video_url) {
+              throw new Error("Server tidak mengembalikan URL video.");
+            }
+            saveVisionPreview(
+              intersection.id_persimpangan,
+              lane.arah,
+              body.video_url,
+            );
+            return body.video_url;
+          });
+        } else {
+          uploadForm.append("frame", file);
+          uploadPromise = requestImage(
             "/api/vision/detect-image?lane=" +
               encodeURIComponent(lane.arah) +
               "&id_persimpangan=" +
               encodeURIComponent(intersection.id_persimpangan),
-            imageForm,
-          ),
-        ])
-          .then(function (responses) {
-            return blobToDataUrl(responses[0]).then(function (dataUrl) {
+            uploadForm,
+          ).then(function (result) {
+            if (typeof result === "string") {
+              saveVisionPreview(
+                intersection.id_persimpangan,
+                lane.arah,
+                result,
+              );
+              return result;
+            }
+            return blobToDataUrl(result).then(function (dataUrl) {
               saveVisionPreview(
                 intersection.id_persimpangan,
                 lane.arah,
@@ -811,12 +996,15 @@
               return dataUrl;
             });
           })
-          .then(function (dataUrl) {
+        }
+        uploadPromise
+          .then(function (mediaUrl) {
             clear(preview);
-            var media = document.createElement("img");
-            media.className = "vision-media";
-            media.src = dataUrl;
-            media.alt = "Pratinjau deteksi YOLOv8 Lajur " + lane.arah;
+            var media = createVisionMedia(
+              mediaUrl,
+              "Pratinjau deteksi YOLOv8 Lajur " + lane.arah,
+              "vision-media",
+            );
             preview.appendChild(media);
             update.textContent = "Update Vision";
             update.disabled = false;
@@ -825,9 +1013,13 @@
           .catch(function (error) {
             update.disabled = false;
             update.textContent = "Update Vision";
-            showError(
-              "Gagal memproses vision " + lane.arah + ": " + error.message,
-            );
+            var message =
+              "Gagal memproses gambar pada server: " +
+              lane.arah +
+              ". " +
+              (error.message || "Silakan coba lagi.");
+            showError(message);
+            toast(message);
           });
       });
       slot.appendChild(preview);
@@ -1262,15 +1454,16 @@
       slot.appendChild(el("strong", null, "Vision Lajur " + lane));
 
       var preview = el("div", "vision-preview");
-      var image = document.createElement("img");
-      image.src =
-        state.registrationVision[lane] || "/static/img/placeholder_lane.jpg";
-      image.className = "img-fluid rounded my-1 vision-placeholder-image";
-      image.alt = "Placeholder Vision Lajur " + lane;
-      image.addEventListener("error", function () {
-        image.hidden = true;
+      var media = createVisionMedia(
+        state.registrationVision[lane] ||
+          "/static/img/placeholder_lane.jpg",
+        "Placeholder Vision Lajur " + lane,
+        "img-fluid rounded my-1 vision-placeholder-image",
+      );
+      media.addEventListener("error", function () {
+        media.hidden = true;
       });
-      preview.appendChild(image);
+      preview.appendChild(media);
       preview.appendChild(
         el("span", "vision-placeholder", "Belum ada feed CCTV untuk lajur ini"),
       );
@@ -1293,9 +1486,47 @@
       input.addEventListener("change", function () {
         var file = input.files && input.files[0];
         if (!file) return;
-        if (file.type.indexOf("image/") !== 0) {
-          showError("Vision registrasi hanya menerima gambar.");
+        var isImage = file.type.indexOf("image/") === 0;
+        var isVideo = file.type.indexOf("video/") === 0;
+        if (!isImage && !isVideo) {
+          showError("Vision registrasi hanya menerima gambar atau video.");
           input.value = "";
+          return;
+        }
+        if (isVideo) {
+          var videoForm = new FormData();
+          videoForm.append("video", file);
+          button.disabled = true;
+          button.textContent = "Menganalisis...";
+          requestVideo(
+            "/api/vision/detect-video?lane=" + encodeURIComponent(lane),
+            videoForm,
+          )
+            .then(function (body) {
+              if (!body.video_url) {
+                throw new Error("Server tidak mengembalikan URL video.");
+              }
+              state.registrationVision[lane] = body.video_url;
+              clear(preview);
+              var videoPreview = createVisionMedia(
+                body.video_url,
+                "Preview video Vision Lajur " + lane,
+                "vision-media",
+              );
+              preview.appendChild(videoPreview);
+              button.disabled = false;
+              button.textContent = "Upload Vision";
+            })
+            .catch(function (error) {
+              button.disabled = false;
+              button.textContent = "Upload Vision";
+              var message =
+                "Gagal memproses video pada server: " +
+                (error.message || "Silakan coba lagi.");
+              showError(message);
+              toast(message);
+              input.value = "";
+            });
           return;
         }
         var reader = new FileReader();
@@ -1373,6 +1604,11 @@
       .catch(function (e) {
         btn.disabled = false;
         btn.textContent = "Simpan Persimpangan";
+        var message =
+          e.status === 500
+            ? "Gagal memproses gambar pada server. Silakan coba lagi."
+            : e.message || "Gagal menyimpan persimpangan.";
+        toast(message);
         if ([401, 403, 422].indexOf(e.status) >= 0) {
           window.alert(
             e.message || "Permintaan pendaftaran persimpangan ditolak.",

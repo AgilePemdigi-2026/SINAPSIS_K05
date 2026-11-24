@@ -61,6 +61,31 @@
     while (node.firstChild) node.removeChild(node.firstChild);
   }
 
+  function isVideoSource(source) {
+    if (!source) return false;
+    var value = String(source).split("?")[0].toLowerCase();
+    return value.indexOf("video/") >= 0 || /\.(mp4|avi|mov|m4v)$/.test(value);
+  }
+
+  function createCctvMedia(source, altText, cssClass) {
+    var media =
+      isVideoSource(source)
+        ? document.createElement("video")
+        : document.createElement("img");
+    media.src = source;
+    if (cssClass) media.className = cssClass;
+    if (media.tagName === "VIDEO") {
+      media.controls = true;
+      media.autoplay = true;
+      media.loop = true;
+      media.muted = true;
+      media.playsInline = true;
+    } else {
+      media.alt = altText || "Feed CCTV SINAPSIS";
+    }
+    return media;
+  }
+
   /* ---------- indikator memuat (skeleton) ---------- */
   function skel(cls) {
     return el("div", "skel " + cls);
@@ -191,6 +216,30 @@
   }
   function densityWord(pct) {
     return pct >= KRITIS_PCT ? "Kritis" : pct >= PADAT_PCT ? "Padat" : "Lancar";
+  }
+
+  function detectionCount(item, laneName) {
+    if (item && item.counts && Object.prototype.hasOwnProperty.call(item.counts, laneName)) {
+      return Number(item.counts[laneName]) || 0;
+    }
+    var result = item && item.detection_result;
+    if (result) {
+      if (result.counts && Object.prototype.hasOwnProperty.call(result.counts, laneName)) {
+        return Number(result.counts[laneName]) || 0;
+      }
+      if (Array.isArray(result.detections)) {
+        return result.detections.filter(function (detection) {
+          return detection && detection.lane === laneName;
+        }).length;
+      }
+    }
+    var lane = null;
+    if (item && Array.isArray(item.jalur)) {
+      item.jalur.forEach(function (candidate) {
+        if (candidate.arah === laneName) lane = candidate;
+      });
+    }
+    return lane ? Number(lane.jumlah_kendaraan) || 0 : 0;
   }
 
   /* ---------- jaringan ---------- */
@@ -549,11 +598,22 @@
     var grid = el("div", "cctv-grid");
     feeds.forEach(function (feed) {
       var card = el("figure", "cctv-snapshot");
-      var image = document.createElement("img");
-      image.src = feed.preview;
-      image.alt = "Snapshot YOLOv8 Lajur " + feed.arah;
-      card.appendChild(image);
-      card.appendChild(el("figcaption", null, "Lajur " + feed.arah));
+      var media = createCctvMedia(
+        feed.preview,
+        "Snapshot YOLOv8 Lajur " + feed.arah,
+      );
+      card.appendChild(media);
+      var count = detectionCount(item, feed.arah);
+      var pct = item && item.kapasitas_jalur
+        ? Math.round((count / item.kapasitas_jalur) * 100)
+        : Math.round((count / 20) * 100);
+      card.appendChild(
+        el(
+          "figcaption",
+          null,
+          feed.arah + " - " + count + " kendaraan · " + densityWord(pct),
+        ),
+      );
       grid.appendChild(card);
     });
     box.appendChild(grid);
@@ -601,21 +661,43 @@
       var tile = el("figure", "cctv-tile");
       var screen = el("div", "cctv-screen");
       if (snaps[arah]) {
-        var img = document.createElement("img");
-        img.src = snaps[arah];
-        img.alt = "Feed CCTV lengan " + arah;
-        screen.appendChild(img);
+        var media = createCctvMedia(
+          snaps[arah],
+          "Feed CCTV lengan " + arah,
+        );
+        screen.appendChild(media);
       } else {
         screen.appendChild(el("span", "cctv-noimg", "Belum ada feed"));
       }
-      screen.appendChild(el("span", "cctv-cam", "CAM " + (i + 1)));
+      var detectionCountForLane = detectionCount(item, arah);
+      var lanePct = item && item.kapasitas_jalur
+        ? Math.round((detectionCountForLane / item.kapasitas_jalur) * 100)
+        : Math.round((detectionCountForLane / 20) * 100);
+      screen.appendChild(
+        el(
+          "span",
+          "cctv-cam",
+          "CAM " +
+            (i + 1) +
+            " · " +
+            arah +
+            " - " +
+            detectionCountForLane +
+            " kendaraan · " +
+            densityWord(lanePct),
+        ),
+      );
       if (lane && lane.sinyal) {
         var on = lane.sinyal === "HIJAU";
         screen.appendChild(el("span", "cctv-sig " + (on ? "go" : "stop"), on ? "HIJAU" : "MERAH"));
       }
       tile.appendChild(screen);
-      var cap = arah;
-      if (lane) cap += " · " + lane.jumlah_kendaraan + " kendaraan · " + densityWord(lane.densitas_pct);
+      var cap =
+        arah +
+        " - " +
+        detectionCountForLane +
+        " kendaraan · " +
+        densityWord(lanePct);
       tile.appendChild(el("figcaption", null, cap));
       wall.appendChild(tile);
     });
