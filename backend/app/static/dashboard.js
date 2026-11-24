@@ -228,7 +228,14 @@
   }
 
   function detectionCount(item, laneName) {
-    if (item && item.counts && Object.prototype.hasOwnProperty.call(item.counts, laneName)) {
+    /* item.counts selalu berisi 0 sebelum YOLO mengirim hasil; pakai hanya bila sudah ada hasil deteksi,
+       kalau belum, jatuh ke jumlah_kendaraan telemetri supaya CCTV tidak menampilkan 0 palsu. */
+    if (
+      item &&
+      item.detection_result &&
+      item.counts &&
+      Object.prototype.hasOwnProperty.call(item.counts, laneName)
+    ) {
       return Number(item.counts[laneName]) || 0;
     }
     var result = item && item.detection_result;
