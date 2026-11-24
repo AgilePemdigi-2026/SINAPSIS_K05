@@ -1352,6 +1352,7 @@ td.mono {
 .live-chip b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #0f0945; color: #fff; font-size: 11px; }
 .live-chip.c-padat { border-color: #114eab; }
 .live-chip.c-kritis { border-color: #d0334a; }
+.live-chip.c-offline { border-color: #798293; background: #f3f5f8; color: #5a6474; }
 .livemap .leaflet-attribution-flag { width: 12px !important; height: 8px !important; display: inline !important; }
 .livemap .leaflet-control-attribution svg { width: auto; height: auto; }
 

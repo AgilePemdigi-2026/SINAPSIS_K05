@@ -170,6 +170,15 @@
     s = String(s || "").toLowerCase();
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
+  function formatPeriod(s) {
+    if (!s) return "—";
+    var upper = String(s).toUpperCase();
+    if (upper.indexOf("FAIL_SAFE") !== -1) return "Timer Tetap";
+    if (upper === "RUSH_HOUR" || upper === "SIBUK") return "Jam Sibuk";
+    if (upper === "NORMAL") return "Normal";
+    if (upper === "NIGHT" || upper === "MALAM") return "Malam Hari";
+    return sentence(s);
+  }
   function dec(n) {
     return String(n).replace(".", ",");
   }
@@ -1084,7 +1093,7 @@
       }));
       s.appendChild(g);
     });
-    s.appendChild(svg("text", { class: "center-text", x: C.cx, y: C.cy - 4 }, sentence(item.periode)));
+    s.appendChild(svg("text", { class: "center-text", x: C.cx, y: C.cy - 4 }, formatPeriod(item.periode)));
     s.appendChild(svg("text", { class: "center-text", x: C.cx, y: C.cy + 12 }, "Siklus " + item.siklus));
 
     var layers = {}, byArm = {};
@@ -1119,7 +1128,10 @@
         cg.appendChild(svg("circle", { class: "arm-badge", cx: -48, cy: -11, r: 9 }));
         cg.appendChild(svg("text", { class: "arm-badge-t sm", x: -48, y: -7 }, no));
         cg.appendChild(svg("text", { class: "tag-name rad", x: -34, y: -6 }, a));
-        cg.appendChild(svg("text", { class: "tag-detail rad", x: -56, y: 10 }, lane.jumlah_kendaraan + " kend. · " + pct + "% · " + densityWord(pct)));
+        var radDetail = item.sensor_offline
+          ? "Sensor offline"
+          : lane.jumlah_kendaraan + " kend. · " + pct + "% · " + densityWord(pct);
+        cg.appendChild(svg("text", { class: "tag-detail rad", x: -56, y: 10 }, radDetail));
         cg.appendChild(svg("rect", { class: "tag-track", x: -56, y: 17, width: 112, height: 5, rx: 2.5 }));
         cg.appendChild(svg("rect", { class: densityClass(pct), x: -56, y: 17, width: Math.max(3, Math.min(1, lane.jumlah_kendaraan / cap) * 112), height: 5, rx: 2.5 }));
         if (lane.spike) cg.appendChild(svg("text", { class: "arm-flag", x: 60, y: -6 }, "Spike"));
@@ -1320,11 +1332,14 @@
     live.el.appendChild(ov);
     applyLiveScale();
     var list = el("div", "live-arms");
+    var isOff = !!item.sensor_offline;
     arms.forEach(function (a, i) {
       var l = byArm[a]; if (!l) return;
-      var chip = el("span", "live-chip " + densityClass(l.densitas_pct).replace("q-", "c-"));
+      var chip = el("span", "live-chip " + (isOff ? "c-offline" : densityClass(l.densitas_pct).replace("q-", "c-")));
       chip.appendChild(el("b", null, armLabel(a, i)));
-      chip.appendChild(document.createTextNode(" " + l.jumlah_kendaraan + " kend. · " + densityWord(l.densitas_pct) +
+      var statusWord = isOff ? "Sensor offline" : densityWord(l.densitas_pct);
+      var kendText = isOff ? "—" : l.jumlah_kendaraan + " kend.";
+      chip.appendChild(document.createTextNode(" " + kendText + " · " + statusWord +
         (l.sinyal === "HIJAU" ? " · hijau " + l.durasi + " dtk" : "")));
       list.appendChild(chip);
     });
@@ -1337,6 +1352,14 @@
     var box = $("diagram");
     clear(box);
     var item = currentItem();
+    var legendEl = $("diagramLegend");
+    if (legendEl) {
+      if (item && (item.sensor_offline || (item.periode && String(item.periode).toUpperCase().indexOf("FAIL_SAFE") !== -1))) {
+        legendEl.textContent = "Mode Fail-Safe: Sensor/CCTV offline. Lampu menyala berdasarkan jadwal timer konvensional bergilir (Fixed-Timer Round-Robin) demi keselamatan interlocking (tepat satu lajur hijau).";
+      } else {
+        legendEl.textContent = "Satu mobil atau motor di layar = satu kendaraan pada data siklus terakhir. Lajur masuk berada di sisi kiri jalan; kendaraan di lengan hijau dilepas satu per satu, lengan merah menunggu. Lampu menyala sesuai keputusan terakhir mesin LIF.";
+      }
+    }
     box.classList.toggle("corridor-on", !!(item && item.koridor_hijau));
     if (item && item.koridor_hijau) box.appendChild(corridorBadge(item));
     if (!item || !item.jalur.length) {
@@ -1394,7 +1417,7 @@
       svg(
         "text",
         { class: "center-text", x: 380, y: 276 },
-        sentence(item.periode),
+        formatPeriod(item.periode),
       ),
     );
     s.appendChild(
@@ -1656,6 +1679,9 @@
     clear(box);
     var it = currentItem();
     if (!it || !it.jalur.length) return;
+    var isOffline = !!it.sensor_offline;
+    var isFailSafe = isOffline || (it.periode && String(it.periode).toUpperCase().indexOf("FAIL_SAFE") !== -1);
+
     var greens = it.jalur
       .filter(function (l) {
         return l.sinyal === "HIJAU";
@@ -1666,36 +1692,47 @@
     box.appendChild(
       metric(
         "Total kendaraan",
-        String(it.jumlah_kendaraan),
-        (it.tipe || it.jalur.length + " lengan") + ", siklus terakhir",
-        it.status === "Kritis" ? { text: "Macet" } : null,
+        isOffline ? "0" : String(it.jumlah_kendaraan),
+        isOffline ? "Sensor offline, siklus terakhir" : (it.tipe || it.jalur.length + " lengan") + ", siklus terakhir",
+        it.status === "Kritis" ? { text: "Macet" } : (isOffline ? { text: "Offline", warn: true } : null),
       ),
     );
+
+    var terpadatTitle = isOffline ? "—" : it.jalur_terpadat.arah;
+    var terpadatSub = isOffline
+      ? "Data sensor terputus"
+      : it.jalur_terpadat.jumlah + " kendaraan (" + it.densitas_maks_pct + "%)";
     box.appendChild(
       metric(
         "Jalur terpadat",
-        it.jalur_terpadat.arah,
-        it.jalur_terpadat.jumlah + " kendaraan (" + it.densitas_maks_pct + "%)",
+        terpadatTitle,
+        terpadatSub,
+        isOffline ? { text: "Offline", warn: true } : null,
       ),
     );
+
     box.appendChild(
       metric(
         "Lampu hijau",
         greens.length ? greens.join(", ") : "Tidak ada",
-        "lengan lain menunggu",
+        isFailSafe ? "Rotasi fixed-timer (Interlocking Safety)" : "lengan lain menunggu",
       ),
     );
+
+    var periodeTitle = isFailSafe ? "Timer Tetap" : formatPeriod(it.periode);
+    var periodeSub = isFailSafe ? "Fail-Safe (Non-AI)" : "ambang spike " + dec(it.ambang);
     box.appendChild(
-      metric("Periode", sentence(it.periode), "ambang spike " + dec(it.ambang)),
+      metric("Periode", periodeTitle, periodeSub),
     );
+
     box.appendChild(
       metric(
         "Prediksi jam depan",
-        it.prediksi_maks_pct === null ? "—" : it.prediksi_maks_pct + "%",
-        it.prediksi_maks_pct === null
-          ? "riwayat belum cukup"
-          : "kepadatan jalur terpadat",
-        earlyWarning(it, d) ? { text: "Peringatan dini", warn: true } : null,
+        (isOffline || it.prediksi_maks_pct === null) ? "—" : it.prediksi_maks_pct + "%",
+        isOffline
+          ? "mode darurat fixed-timer"
+          : (it.prediksi_maks_pct === null ? "riwayat belum cukup" : "kepadatan jalur terpadat"),
+        (!isOffline && earlyWarning(it, d)) ? { text: "Peringatan dini", warn: true } : null,
       ),
     );
   }
@@ -1783,15 +1820,15 @@
       var cells = [
         [s.nama_lokasi, ""],
         [coord(s), "mono"],
-        [has ? String(s.jumlah_kendaraan) : "—", "num"],
+        [has ? (s.sensor_offline ? "0" : String(s.jumlah_kendaraan)) : "—", "num"],
         [
           has
-            ? s.jalur_terpadat.arah + " (" + s.jalur_terpadat.jumlah + ")"
+            ? (s.sensor_offline ? "—" : s.jalur_terpadat.arah + " (" + s.jalur_terpadat.jumlah + ")")
             : "—",
           "",
         ],
-        [has ? s.densitas_maks_pct + "%" : "—", "num"],
-        [has ? sentence(s.periode) + " (" + dec(s.ambang) + ")" : "—", ""],
+        [has ? (s.sensor_offline ? "—" : s.densitas_maks_pct + "%") : "—", "num"],
+        [has ? (s.sensor_offline ? "Timer Tetap (Fail-Safe)" : formatPeriod(s.periode) + " (" + dec(s.ambang) + ")") : "—", ""],
         [
           has && s.prediksi_maks_pct !== null ? s.prediksi_maks_pct + "%" : "—",
           "num",

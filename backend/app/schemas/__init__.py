@@ -101,6 +101,14 @@ class SimulationRequest(BaseModel):
     seed: Optional[int] = None
 
 
+class NetworkSimulationRequest(BaseModel):
+    profil: str = "NORMAL"
+    jumlah_siklus: int = 10
+    gangguan_simpang_ids: Optional[list[int]] = None
+    inject_weather_noise: bool = False
+    seed: Optional[int] = None
+
+
 # ---- Monitoring Manual -------------------------------------------------------
 class ManualCycleRequest(BaseModel):
     id_persimpangan: int
