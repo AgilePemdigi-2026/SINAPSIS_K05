@@ -14,12 +14,12 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import ROLE_ADMIN, ROLE_PETUGAS, PASS_RULE, hash_password, require_roles
 from app.models import AktivitasNeuron, Deteksi, DetailRute, Jalur, KeputusanSinyal, NotifikasiAlert, KonfigurasiSistem, Pengguna, Persimpangan, SimulasiSkenario
-from app.schemas import IntersectionBearingUpdate, IntersectionCreate, IntersectionPathUpdate, IntersectionDeleteBatch, ParameterUpdate, SimulationRequest, UserCreate
+from app.schemas import IntersectionBearingUpdate, IntersectionCreate, IntersectionPathUpdate, IntersectionDeleteBatch, NetworkSimulationRequest, ParameterUpdate, SimulationRequest, UserCreate
 from app.services import monitoring_service as svc
 from app.services.arms import MAX_ARMS, MIN_ARMS, NUMBERED_FROM, arm_type, effective_bearings, normalize_arms, normalize_bearings, normalize_paths, numbered_names
 from app.services.neuromorphic import Params
 from app.services.sensor_source import SyntheticSensorSource
-from app.services.simulation_service import run_simulation
+from app.services.simulation_service import run_network_simulation, run_simulation
 from app.core.timeutil import utcnow
 from app.routers.vision import decode_frame, get_yolo_service
 
@@ -64,6 +64,14 @@ def _analyze_registration_feeds(feeds: dict[str, str] | None, lanes: list[str]) 
     for lane, data_url in feeds.items():
         if lane not in lanes:
             raise HTTPException(422, f"Feed vision memiliki lajur tidak dikenal: {lane}.")
+        if isinstance(data_url, str) and (
+            data_url.startswith("/static/uploads/")
+            or data_url.endswith(".mp4")
+            or data_url.endswith(".avi")
+            or data_url.endswith(".mov")
+        ):
+            analyzed[lane] = {"count": 0, "preview": data_url}
+            continue
         if not isinstance(data_url, str) or not data_url.startswith("data:image/") or "," not in data_url:
             raise HTTPException(422, f"Feed vision untuk lajur {lane} harus berupa Data URL gambar.")
         try:
@@ -72,6 +80,7 @@ def _analyze_registration_feeds(feeds: dict[str, str] | None, lanes: list[str]) 
                 model=base_service.model,
                 confidence=base_service.confidence,
                 lane_mapper=lambda center_x, center_y, width, height, selected=lane: selected,
+                fixed_lane=lane,
             )
             result = service.detect(frame)
             encoded, annotated = cv2.imencode(".jpg", service.draw_detections(frame, result))
@@ -369,3 +378,16 @@ def simulate(req: SimulationRequest, db: Session = Depends(get_db), user=Depends
         raise HTTPException(422, "jumlah_siklus harus antara 1 dan 500.")
     return run_simulation(db, user.id_pengguna, req.profil, req.jumlah_siklus,
                           req.inject_weather_noise, req.simulasi_sensor_failure, req.seed)
+
+
+@router.post("/simulations/network")
+def simulate_network(req: NetworkSimulationRequest, db: Session = Depends(get_db), user=Depends(_admin)):
+    """Simulasi beban lalu lintas jaringan 5 persimpangan sekaligus dengan skenario gangguan selektif."""
+    if req.profil not in SyntheticSensorSource.PROFILES:
+        raise HTTPException(422, f"Profil tidak dikenal. Pilihan: {', '.join(SyntheticSensorSource.PROFILES)}")
+    if not 1 <= req.jumlah_siklus <= 100:
+        raise HTTPException(422, "jumlah_siklus harus antara 1 dan 100.")
+    return run_network_simulation(
+        db, user.id_pengguna, req.profil, req.jumlah_siklus,
+        req.gangguan_simpang_ids, req.inject_weather_noise, req.seed
+    )

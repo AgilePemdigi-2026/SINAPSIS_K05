@@ -57,6 +57,8 @@ class SensorHub:
         self.history: dict[int, deque] = {}  # rasio kepadatan per langkah (maks 24), tiap elemen = 4 jalur
         self.last_ts: dict[int, datetime] = {}
         self.last_result: dict[int, dict] = {}  # hasil siklus terakhir per simpang (untuk diagram dashboard)
+        self.last_detection: dict[int, dict] = {}
+        self.vision_counts: dict[int, dict[str, int]] = {}
 
     def reset(self):
         self.__init__()
@@ -150,7 +152,13 @@ def run_cycle(db: Session, persimpangan: Persimpangan, counts: list[int] | None 
     return result
 
 
-def record_vision_detection(db: Session, persimpangan: Persimpangan, lane_name: str, vehicle_count: int) -> dict:
+def record_vision_detection(
+    db: Session,
+    persimpangan: Persimpangan,
+    lane_name: str,
+    vehicle_count: int,
+    detection_result: dict | None = None,
+) -> dict:
     """Persist one YOLO lane count and run the LIF controller for the intersection."""
     jalur = sorted(persimpangan.jalur, key=lambda lane: lane.id_jalur)
     lane_index = next((index for index, lane in enumerate(jalur) if lane.arah == lane_name), None)
@@ -170,6 +178,35 @@ def record_vision_detection(db: Session, persimpangan: Persimpangan, lane_name: 
     result = run_cycle(db, persimpangan, counts=counts)
     if result is None:
         raise RuntimeError("Siklus LIF gagal dijalankan setelah deteksi vision.")
+    if detection_result is not None:
+        detections = detection_result.get("detections", [])
+        supplied_counts = detection_result.get("counts")
+        if isinstance(supplied_counts, dict):
+            result_counts = {
+                lane.arah: max(
+                    0,
+                    int(supplied_counts.get(lane.arah, 0)),
+                )
+                for lane in jalur
+            }
+        else:
+            result_counts = {
+                lane.arah: sum(
+                    1 for detection in detections
+                    if detection.get("lane") == lane.arah
+                )
+                for lane in jalur
+            }
+        existing_vision_counts = hub.vision_counts.setdefault(
+            persimpangan.id_persimpangan,
+            {lane.arah: 0 for lane in jalur},
+        )
+        existing_vision_counts[lane_name] = result_counts.get(lane_name, 0)
+        hub.last_detection[persimpangan.id_persimpangan] = {
+            "total": len(detections),
+            "counts": dict(existing_vision_counts),
+            "detections": detections,
+        }
     return result
 
 
@@ -288,6 +325,7 @@ def dashboard(db: Session) -> dict:
             "bearing": effective_bearings(arms_sorted, {j.arah: j.bearing for j in p.jalur}),
             "garis_lengan": {j.arah: json.loads(j.path) for j in p.jalur if j.path},
             "jumlah_kendaraan": sum(counts), "sensor_offline": offline,
+            "kapasitas_jalur": settings.MAX_VEHICLES,
             "vision_feeds": [{
                 "arah": arah,
                 "preview": next((lane.vision_preview for lane in p.jalur if lane.arah == arah), None),
@@ -299,6 +337,13 @@ def dashboard(db: Session) -> dict:
             "waktu_data": ts.isoformat() if ts else None,
         }
         item.update(_detail(hub.last_result.get(p.id_persimpangan), offline))
+        item["detection_result"] = hub.last_detection.get(p.id_persimpangan)
+        vision_counts = hub.vision_counts.get(p.id_persimpangan)
+        item["counts"] = (
+            dict(vision_counts)
+            if vision_counts
+            else {lane.arah: 0 for lane in p.jalur}
+        )
         items.append(item)
         if label == "Kritis":
             alerts.append(p.nama_lokasi)
